@@ -1,0 +1,122 @@
+# Asistente de pólizas y siniestros
+
+Prueba técnica desarrollada por **Jesus Nicho Rosado**. La solución consulta datos y condiciones de seguros, explica sus fuentes y deriva casos a atención humana. Usa Python y un modelo local mediante Ollama.
+
+**Última validación:** 12 casos correctos, 179 pruebas aprobadas y nueve llamadas reales a `qwen2.5:7b`. Tres casos se resolvieron con controles previos sin IA. Los datos son ficticios.
+
+## Inicio rápido con IA
+
+Requisitos: **Python 3.10 o superior** y Windows x64 para la preparación automática. Git es necesario si clonas el repositorio:
+
+~~~powershell
+git clone https://github.com/jnichor/prueba_tecnica_AI_developer.git
+cd prueba_tecnica_AI_developer
+python run_casos.py --evaluar
+~~~
+
+El comando comprueba Ollama, reutiliza un servicio y modelo disponibles, y prepara lo que falte. En Windows x64 puede descargar la distribución portátil oficial verificada y el modelo en `.runtime/`, sin instalar un servicio del sistema ni paquetes Python.
+
+**Tiempo de inicio:** con el modelo disponible, el lote de prueba requirió 32.700 segundos de inferencia en el equipo utilizado. La primera preparación necesita Internet y aproximadamente 6.3 GB de descarga, más espacio de extracción; puede superar cinco minutos según la red y el equipo. No se presenta esa descarga como una instalación inferior a cinco minutos.
+
+Para preparar el entorno sin ejecutar los casos:
+
+~~~powershell
+python run_casos.py --solo-preparar
+~~~
+
+En Linux o macOS se reutiliza un servicio Ollama local ya iniciado; no se instala automáticamente el runtime. La configuración opcional está en [.env.example](.env.example). `--modelo` prevalece sobre `OLLAMA_MODEL`; `AGENT_MODE` y `OLLAMA_BASE_URL` permiten configurar el modo y el servicio local.
+
+## Verificación rápida sin IA
+
+Para comprobar que Python puede ejecutar el flujo y las reglas sin descargar modelos:
+
+~~~powershell
+python run_casos.py --modo offline --evaluar
+~~~
+
+Esta ruta sirve como comprobación rápida de instalación y no reemplaza la validación con IA. El modo offline es explícito y no prepara servicios ni accede a la red.
+
+## Consultas y consola
+
+Consulta individual con una sesión de demostración:
+
+~~~powershell
+python consultar.py --rol cliente --usuario C001 --mensaje "¿En qué estado está mi siniestro S-5521?"
+~~~
+
+Consola interactiva:
+
+~~~powershell
+python consultar.py --rol cliente --usuario C001 --interactivo
+~~~
+
+Escribe `salir` o `exit` para terminar. La sesión conserva su identidad, pero las consultas son independientes: no hay memoria de conversación. Agrega `--modo offline` para usar reglas sin IA.
+
+Los argumentos de rol y usuario **simulan una sesión ya autenticada**. En producción los proporcionaría el servidor; conocer un DNI o escribir otro cargo no concede permisos.
+
+## Evaluación y consumo
+
+Ejecutar y evaluar los 12 casos:
+
+~~~powershell
+python run_casos.py --evaluar
+~~~
+
+Evaluar el lote entregado sin nuevas inferencias:
+
+~~~powershell
+python evaluar.py --entrada entrega/respuestas.json
+~~~
+
+El evaluador genera `evaluacion_automatica.md` y `evaluacion_automatica.json` junto a la entrada. Puedes elegir otros destinos con `--informe` y `--salida-json`. Devuelve 0 si todos cumplen, 1 si hay parciales o fallos y 2 si la entrada es inválida.
+
+Cada nueva respuesta y log registra tokens de entrada, salida y total, llamadas y latencia. Se suman todos los intentos de una consulta, sin acumular consultas anteriores. Los controles sin IA registran cero; si faltan contadores, el consumo se marca incompleto o desconocido. No se calcula un costo monetario.
+
+El lote validado consumió **3,549 tokens de entrada y 517 de salida: 4,066 en total**.
+
+## Entrega verificable
+
+| Archivo | Contenido |
+| --- | --- |
+| [DISENO.md](DISENO.md) | Arquitectura, decisiones, alternativas y límites |
+| [RESULTADOS.md](RESULTADOS.md) | Las 12 respuestas exactas, herramientas, fuentes y evaluación |
+| [entrega/respuestas.json](entrega/respuestas.json) | Salida íntegra del último lote con IA |
+| [entrega/muestra_interacciones.jsonl](entrega/muestra_interacciones.jsonl) | Muestra de auditoría de consultas, sesiones, herramientas y respuestas |
+| [entrega/muestra_tickets.jsonl](entrega/muestra_tickets.jsonl) | Ticket local de derivación |
+| [entrega/evaluacion_automatica.md](entrega/evaluacion_automatica.md) | Comprobaciones automáticas por criterio |
+| [entrega/evaluacion_automatica.json](entrega/evaluacion_automatica.json) | Evaluación en formato estructurado |
+| [entrega/VERIFICACION.md](entrega/VERIFICACION.md) | Evidencia del lote y matriz de las ocho reglas |
+| [entrega/fuentes_sha256.json](entrega/fuentes_sha256.json) | Huellas para comprobar los archivos de evidencia |
+
+Las nuevas ejecuciones con IA escriben en `salidas_ollama_corregido/`; el modo offline usa `salidas/`. Esas carpetas de trabajo no forman parte de la entrega publicada. Los artefactos seleccionados están en `entrega/`.
+
+La revisión de contenido se realizó **con asistencia de Codex**, contrastando los CSV y artículos del paquete. No fue una evaluación humana ciega. Coincidió con las comprobaciones automáticas existentes: 12 casos correctos. Esto acredita los casos y controles verificados, no seguridad universal.
+
+## Cómo funciona
+
+`planning.py` interpreta la intención y entidades en un esquema de siete campos. El modelo recibe la consulta y el contexto mínimo de sesión; no recibe expedientes ni condicionados, no genera SQL y no redacta la respuesta final.
+
+`resolver.py` aplica las reglas, consulta SQL parametrizado, recupera artículos y construye la respuesta con evidencia. `tools.py` valida identidad, restringe las filas accesibles y mantiene SQL de solo lectura. Las otras herramientas buscan condiciones y registran tickets locales.
+
+En una versión anterior, la generación libre inventó un motivo de rechazo y un plazo de pago. La corrección separó interpretación, reglas y construcción de respuestas. La validación actual corresponde a una nueva ejecución real; no se reetiquetaron los resultados anteriores.
+
+## Pruebas y límites
+
+~~~powershell
+python -m unittest discover -s tests
+~~~
+
+Las 179 pruebas cubren permisos, escrituras bloqueadas, planes maliciosos, fuentes, fechas, recuperación, preparación, consola, evaluación y consumo. La preparación en un equipo limpio se comprobó con archivos y servicios simulados; la prueba real reutilizó el modelo disponible, no otra computadora física.
+
+- Fecha del ejercicio: **15 de octubre de 2026**; entrega validada el **2 de noviembre de 2026**.
+- En el agregado trimestral se usa última actualización como aproximación a fecha de rechazo. No hay historial de estados que garantice la fecha de decisión.
+- No hay historial de primas ni fecha de anulación para reconstruir todos los eventos pasados.
+- Los tickets son locales: no notifican a una persona. Las consultas no soportadas se aclaran o derivan.
+- La CLI no implementa autenticación de producción, cifrado de logs ni atención multiusuario.
+- El documento confidencial del enunciado no se incluye. Sus referencias en las respuestas identifican políticas configuradas, sin requerir ese PDF para ejecutar.
+
+## Uso de asistentes de IA
+
+Se utilizó **OpenAI Codex** para analizar el material, diseñar la arquitectura, implementar código y documentación, preparar pruebas y apoyar la verificación de resultados contra los datos y condiciones.
+
+Esto se distingue del modelo de ejecución: **Ollama 0.40.13 con `qwen2.5:7b`**, que interpreta consultas durante el uso del agente. La revisión asistida no sustituye comprender y poder explicar o modificar la solución.

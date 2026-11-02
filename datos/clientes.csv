@@ -1,0 +1,41 @@
+cliente_id,nombres,apellidos,dni,fecha_nacimiento,distrito,telefono,email,fecha_alta
+C001,Ana Lucía,Torres Vega,41827365,1985-04-12,Miraflores,938352805,ana.torres@correo-ejemplo.pe,2020-02-11
+C002,Luis Alberto,Quispe Mamani,45672819,1990-09-23,San Juan de Lurigancho,969091062,luis.quispe@correo-ejemplo.pe,2021-09-12
+C003,María Elena,Fernández Salas,40918273,1982-01-30,Surco,911405747,maria.fernandez@correo-ejemplo.pe,2023-08-07
+C004,Jorge Luis,Ramírez Castro,43561728,1978-06-05,Los Olivos,915409396,jorge.ramirez@correo-ejemplo.pe,2019-03-03
+C005,Rosa María,Huamán Ccori,46281937,1993-11-17,Ate,991878255,rosa.huaman@correo-ejemplo.pe,2020-02-02
+C006,Pedro José,Salazar Núñez,42739184,1980-03-08,San Isidro,980487276,pedro.salazar@correo-ejemplo.pe,2023-08-23
+C007,Ricardo Andrés,Paredes León,44192837,1987-07-21,La Molina,966710527,ricardo.paredes@correo-ejemplo.pe,2023-12-23
+C008,Carmen Rosa,Rojas Delgado,41093827,1984-12-02,Jesús María,963115913,carmen.rojas@correo-ejemplo.pe,2022-03-18
+C009,Diego Armando,Vargas Soto,47382916,1995-05-14,San Miguel,997591360,diego.vargas@correo-ejemplo.pe,2022-11-12
+C010,Carlos Enrique,Mendoza Ríos,40827163,1983-08-29,Miraflores,994718741,carlos.mendoza@correo-ejemplo.pe,2022-08-30
+C011,Juan Carlos,Silva Ramos,43905853,1987-04-29,Magdalena,917795586,juan.silva11@correo-ejemplo.pe,2020-08-17
+C012,Lucía,Cruz Mendoza,41030048,1994-07-14,Comas,918968285,lucia.cruz12@correo-ejemplo.pe,2021-12-09
+C013,Miguel Ángel,Benavides Cárdenas,44530456,1992-10-02,Chorrillos,933643046,miguel.benavides13@correo-ejemplo.pe,2018-04-07
+C014,Patricia,Chávez Arce,40026132,1989-02-12,San Miguel,967070072,patricia.chavez14@correo-ejemplo.pe,2019-11-14
+C015,José Antonio,Gutiérrez Silva,47479038,1987-04-08,Miraflores,925347212,jose.gutierrez15@correo-ejemplo.pe,2018-10-11
+C016,Sofía,Cornejo Ruiz,48950806,1966-09-02,San Miguel,984937651,sofia.cornejo16@correo-ejemplo.pe,2020-04-15
+C017,Fernando,Rojas Gutiérrez,47862468,1990-03-09,San Borja,988141178,fernando.rojas17@correo-ejemplo.pe,2021-01-19
+C018,Gabriela,Arce Valdivia,44156066,1982-01-14,San Borja,927883096,gabriela.arce18@correo-ejemplo.pe,2019-02-05
+C019,Raúl,Medina Chávez,40551677,1982-04-17,Pueblo Libre,957294684,raul.medina19@correo-ejemplo.pe,2020-09-09
+C020,Daniela,Castro Palacios,47627096,1985-11-25,Callao,911497580,daniela.castro20@correo-ejemplo.pe,2021-04-24
+C021,César,Ruiz Chávez,45060394,1971-01-17,Los Olivos,973600589,cesar.ruiz21@correo-ejemplo.pe,2022-12-19
+C022,Valeria,Paz Valdivia,46617790,1976-12-20,La Victoria,942842923,valeria.paz22@correo-ejemplo.pe,2020-02-03
+C023,Óscar,Castro Benavides,40220442,1996-10-25,Barranco,966627193,oscar.castro23@correo-ejemplo.pe,2019-05-25
+C024,Milagros,Ramos Lozano,47971122,1989-12-17,Surco,935694328,milagros.ramos24@correo-ejemplo.pe,2019-04-07
+C025,Eduardo,Ramos Herrera,45785127,1994-04-02,Miraflores,914597977,eduardo.ramos25@correo-ejemplo.pe,2018-12-19
+C026,Karina,Gamarra Flores,40357825,1973-02-28,Lince,977123345,karina.gamarra26@correo-ejemplo.pe,2019-12-26
+C027,Víctor,Medina Herrera,45478259,1970-03-23,Independencia,921001031,victor.medina27@correo-ejemplo.pe,2019-08-31
+C028,Natalia,Silva Medina,41976581,1990-04-01,Comas,951887617,natalia.silva28@correo-ejemplo.pe,2022-05-31
+C029,Hugo,Palacios Valdivia,45419718,1990-06-09,La Victoria,973024279,hugo.palacios29@correo-ejemplo.pe,2018-07-26
+C030,Lorena,Cárdenas Silva,46194730,1980-01-14,La Victoria,999898360,lorena.cardenas30@correo-ejemplo.pe,2021-04-29
+C031,Renzo,Cárdenas Valdivia,41285951,1971-06-04,San Borja,992216832,renzo.cardenas31@correo-ejemplo.pe,2019-10-13
+C032,Claudia,Montoya Cornejo,46369125,1967-05-31,San Borja,929422790,claudia.montoya32@correo-ejemplo.pe,2023-12-15
+C033,Iván,Chávez Díaz,48853883,1984-06-22,Callao,950921768,ivan.chavez33@correo-ejemplo.pe,2022-01-01
+C034,Fiorella,Sánchez Chávez,42983572,1972-11-06,Lince,999853056,fiorella.sanchez34@correo-ejemplo.pe,2023-03-04
+C035,Martín,Herrera Díaz,46407749,1983-10-14,Miraflores,962835973,martin.herrera35@correo-ejemplo.pe,2021-08-24
+C036,Andrea,Sánchez Chávez,48885862,1966-07-02,Lince,993618451,andrea.sanchez36@correo-ejemplo.pe,2018-10-01
+C037,Julio,Ramos Chávez,44308320,1974-09-05,Pueblo Libre,923823059,julio.ramos37@correo-ejemplo.pe,2022-03-28
+C038,Silvia,Chávez Ruiz,42068250,1966-09-12,Surco,951038690,silvia.chavez38@correo-ejemplo.pe,2023-04-18
+C039,Gustavo,Ruiz Sánchez,42055441,1976-07-02,Comas,927526328,gustavo.ruiz39@correo-ejemplo.pe,2018-08-08
+C040,Paola,Díaz Cruz,48270587,1990-05-14,Los Olivos,932769053,paola.diaz40@correo-ejemplo.pe,2018-11-26

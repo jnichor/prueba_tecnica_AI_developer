@@ -1,0 +1,60 @@
+{
+  "descripcion": "SHA-256 de la ejecución local fuente; las muestras seleccionan campos de auditoría sin pensamientos internos del modelo.",
+  "fuentes": [
+    {
+      "archivo": "salidas_ollama_corregido/respuestas.json",
+      "sha256": "dc69e7529ff7b0b2232dca61fe642418dd7e503b7c10f54c54a886661dc0d9c0",
+      "bytes": 54884
+    },
+    {
+      "archivo": "salidas_ollama_corregido/interactions.jsonl",
+      "sha256": "3142df619e40ef7ede461910880d527bedfc0c8a86f8f75ba57a21f3d648a2aa",
+      "bytes": 44929
+    },
+    {
+      "archivo": "salidas_ollama_corregido/tickets.jsonl",
+      "sha256": "689924bbd64874b5d7f1b35f1ea162c0ec3f24dab78f5bc418ec0d7b81a48f8f",
+      "bytes": 322
+    },
+    {
+      "archivo": "salidas_ollama_corregido/evaluacion_automatica.md",
+      "sha256": "c25cfac0e53973f94401f423da9eb80f270d0bbc3529a995f78a59fd8552e70f",
+      "bytes": 18209
+    },
+    {
+      "archivo": "salidas_ollama_corregido/evaluacion_automatica.json",
+      "sha256": "4869566550cf3f68d4fa127c2f2e2a1dd1e13ab2d42fe110043bc2adc2fcadcf",
+      "bytes": 36984
+    },
+    {
+      "archivo": "salidas_ollama_corregido/EVALUACION.md",
+      "sha256": "64abffd486892d10de99dca01a423b4f5f34eda38ced5be015df0c7b1fee4a52",
+      "bytes": 7484
+    },
+    {
+      "archivo": "salidas_ollama_corregido/verificacion.json",
+      "sha256": "4365fe84b1ed913488c09cec3e14f7b8f3dd51cd3576d6628fcff302fb2e55da",
+      "bytes": 1683
+    }
+  ],
+  "muestras": {
+    "casos": [
+      "CP-03",
+      "CP-06",
+      "CP-07",
+      "CP-08",
+      "CP-12"
+    ],
+    "ticket_ids": [
+      "T-C48FED4C6E4B"
+    ]
+  },
+  "copias": {
+    "respuestas.json": "dc69e7529ff7b0b2232dca61fe642418dd7e503b7c10f54c54a886661dc0d9c0",
+    "muestra_interacciones.jsonl": "fb83457279df412b6046ed280d29b09dd2c36c363b64b865fee2c89ca261c294",
+    "muestra_tickets.jsonl": "689924bbd64874b5d7f1b35f1ea162c0ec3f24dab78f5bc418ec0d7b81a48f8f",
+    "evaluacion_automatica.md": "e6c294016b55885b83d412a3fd5853661f3bdc81b886d015f48bd79d035d9a00",
+    "evaluacion_automatica.json": "4869566550cf3f68d4fa127c2f2e2a1dd1e13ab2d42fe110043bc2adc2fcadcf",
+    "VERIFICACION.md": "badc0838add49f659f78c18876f92c33490ee8b29214b86090370776f721b861"
+  }
+}
