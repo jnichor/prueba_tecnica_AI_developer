@@ -19,13 +19,15 @@ El último comando prepara Ollama y el modelo, ejecuta los **12 casos** y crea e
 **Primera vez:** necesita Internet y descarga varios GB; puede superar cinco minutos según la conexión y el equipo. **Después:** reutiliza lo instalado. Desde la carpeta del proyecto, solo ejecuta `python run_casos.py --evaluar`.
 
 <details>
-<summary>Preparación y configuración opcional</summary>
+<summary>Preparar la IA con anticipación (opcional)</summary>
 
-Para preparar el entorno sin ejecutar los casos:
+Este paso sirve para descargar y preparar Ollama y el modelo antes de probar los casos. Por ejemplo, puedes hacer la descarga hoy y ejecutar las 12 consultas después.
 
 ~~~powershell
 python run_casos.py --solo-preparar
 ~~~
+
+No necesitas hacer este paso por separado: `python run_casos.py --evaluar` prepara la IA y luego ejecuta los 12 casos.
 
 En Windows x64 se usa una distribución portátil oficial verificada y se guarda con el modelo en `.runtime/`, sin instalar un servicio del sistema. La primera descarga es de aproximadamente 6.3 GB y requiere espacio adicional para extraerla.
 
