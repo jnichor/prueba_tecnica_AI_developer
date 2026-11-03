@@ -55,9 +55,13 @@ El plan contiene siete campos: intención, siniestro, póliza, ramo, evento, tri
 
 La fecha del ejercicio es 15/10/2026. Rol e identificador representan una sesión previamente autenticada; la CLI la simula. Para rechazos trimestrales, última actualización aproxima la fecha de rechazo: el campo no garantiza un cambio de estado. Las condiciones particulares prevalecen sobre las generales. Un expediente registrado es evidencia de su estado, no permiso para modificarlo.
 
+Los datos disponibles no incluyen historial de primas ni fecha de anulación. Si falta información para responder, se pide una aclaración o se deriva la consulta para revisión humana.
+
 ## 6. Limitaciones conocidas
 
-No hay historial de primas ni fecha de anulación para reconstruir todos los eventos. Discrepancias o datos insuficientes requieren aclaración o revisión humana. Los tickets son archivos locales y no notifican. La consola mantiene identidad, sin memoria conversacional. Logs sin cifrado y sesiones simuladas no son un sistema de producción. El lenguaje y las reglas cubiertos son acotados; 12 casos correctos y 179 pruebas no garantizan seguridad universal. Una instalación limpia se probó con simulaciones, no en otra computadora física.
+- **Cada pregunta empieza de cero.** El sistema sabe qué usuario estás usando, pero no recuerda lo que preguntaste antes. Para consultar nuevamente un siniestro, debes repetir su código.
+- **Pedir atención no envía un aviso.** La solicitud se guarda en tu computadora, pero ningún asesor la recibe automáticamente.
+- **El acceso es de prueba.** Puedes elegir con qué usuario entrar. Antes de usarlo con clientes reales, hay que añadir una verificación de identidad y proteger las consultas y respuestas guardadas.
 
 ## 7. Cómo la llevaría a producción
 
