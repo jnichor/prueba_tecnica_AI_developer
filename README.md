@@ -167,7 +167,8 @@ La revisión de contenido se realizó **con asistencia de Codex**, contrastando 
 
 ## Pruebas del código
 
-La evaluación anterior revisa las respuestas de los 12 casos. Este comando comprueba que el código respete los permisos y las reglas al hacer cambios.
+- **Evaluación de los 12 casos:** comprueba si las respuestas del agente coinciden con los datos y las condiciones del seguro.
+- **Pruebas del código Python:** ejecutan partes del programa para comprobar que funcionen correctamente; por ejemplo, que se bloquee el acceso a siniestros de otro cliente.
 
 ~~~powershell
 python -m unittest discover -s tests
