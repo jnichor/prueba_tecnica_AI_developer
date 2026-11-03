@@ -146,18 +146,6 @@ class DataStore:
 class Tools:
     """Las herramientas no aceptan cambios de rol o identidad desde argumentos."""
 
-    specs = [
-        {"type": "function", "function": {
-            "name": "consulta_datos", "description": "Ejecuta SQL SQLite de solo lectura sobre clientes, polizas y siniestros. La herramienta aplica los permisos de la sesión. Incluye IDs en SELECT para citar registros. Columnas en el diccionario del sistema. Montos vacíos son NULL.",
-            "parameters": {"type": "object", "properties": {"sql": {"type": "string"}, "parametros": {"type": "array", "items": {}}}, "required": ["sql"], "additionalProperties": False}}},
-        {"type": "function", "function": {
-            "name": "buscar_condicionados", "description": "Busca artículos por palabras clave. Usa ramo general para condiciones generales, o vehicular, salud o vida para particulares. 'articulo N' selecciona ese artículo; una referencia como 'Vehicular 5.2' selecciona documento y artículo. El particular prevalece si hay contradicción.",
-            "parameters": {"type": "object", "properties": {"consulta": {"type": "string"}, "ramo": {"type": "string", "enum": ["general", "vehicular", "salud", "vida"]}}, "required": ["consulta"], "additionalProperties": False}}},
-        {"type": "function", "function": {
-            "name": "escalar_humano", "description": "Registra un ticket local para asesor o evaluador. No envía mensajes ni aprueba siniestros. Solo registra datos de la sesión y la consulta autorizada.",
-            "parameters": {"type": "object", "properties": {"motivo": {"type": "string"}, "detalle": {"type": "string"}}, "required": ["motivo"], "additionalProperties": False}}},
-    ]
-
     def __init__(self, root: Path | None = None, output_dir: Path | None = None, safe_model: bool = False):
         self.root = Path(root) if root is not None else ROOT
         self.output_dir = Path(output_dir) if output_dir is not None else self.root / "salidas"

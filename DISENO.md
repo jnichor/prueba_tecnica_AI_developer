@@ -1,7 +1,7 @@
 # Documento de diseño
 
 **Candidato:** Jesus Nicho Rosado  
-**Fecha:** 2 de noviembre de 2026
+**Fecha:** 3 de noviembre de 2026
 
 ## 1. Resumen de la solución
 

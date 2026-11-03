@@ -5,10 +5,7 @@ import re
 import unicodedata
 from datetime import date
 
-from .model import ModelError
-
-
-INTENTS = ("estado_siniestro", "motivo_rechazo", "cobertura", "rechazos_trimestre",
+INTENTS = ("estado_siniestro", "motivo_rechazo", "historial_siniestros", "consultar_polizas", "cobertura", "rechazos_trimestre",
            "asesoria", "operacion_no_permitida", "consulta_tercero", "aclaracion", "fuera_de_alcance")
 PLAN_SCHEMA = {
     "type": "object", "properties": {
@@ -84,9 +81,52 @@ def literal_years(message):
 def requests_third_party_data(message):
     text = normalize(message)
     relatives = r"(?:esposo|esposa|pareja|hermano|hermana|padre|madre|hijo|hija)"
-    before = re.search(rf"(?:que seguros|que polizas|datos de|pagos de|seguro de vida|polizas de).*\b(?:mi|su)\s+{relatives}\b", text)
-    after = re.search(rf"\b(?:mi|su)\s+{relatives}\b.*(?:que seguros|que polizas|seguros tiene|polizas tiene|esta al dia)", text)
+    before = re.search(rf"(?:que seguros|que polizas|que siniestros|que reclamos|historial de|datos de|pagos de|seguro de vida|polizas de|siniestros de|reclamos de).*\b(?:mi|su)\s+{relatives}\b", text)
+    after = re.search(rf"\b(?:mi|su)\s+{relatives}\b.*(?:que seguros|que polizas|que siniestros|que reclamos|seguros tiene|polizas tiene|siniestros tiene|reclamos tiene|historial|esta al dia)", text)
     return bool(before or after)
+
+
+def self_claim_history_request(message):
+    """Historia propia inequívoca, no una mezcla de titulares ni un expediente concreto."""
+    text = normalize(message)
+    claim = r"(?:siniestros?|reclamos?|reclamacion(?:es)?)"
+    if literal_ids(message, "S") or not re.search(rf"\b{claim}\b", text):
+        return False
+    # Aquí no se valida ninguna identidad escrita: esa autoridad sigue siendo la sesión.
+    if (requests_third_party_data(message)
+            or re.search(r"\b(?:c\d+|dni|documento|esposo|esposa|pareja|hermano|hermana|padre|madre|hijo|hija|familia|amigo|amiga|vecino|vecina|terceros?|ella|ellos|ellas|nosotros|nosotras|ustedes)\b", text)
+            or re.search(r"\b\d{8}\b|\b(?:otra persona|otro usuario|otro cliente|los suyos|los de)\b", text)
+            or re.search(r"\b(?:y|o)\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+\b", message)
+            or re.search(r"\b(?:aprueb\w*|aprob\w*|actualiz\w*|modific\w*|elimin\w*|borr\w*)\b", text)):
+        return False
+    own_verb = re.search(r"\b(?:he\s+(?:tenido|registrado|reportado|presentado)|tengo|tuve|registre|reporte|presente)\b", text)
+    own_records = re.search(rf"\b(?:mis?\s+{claim}|mi\s+historial|mios?|a\s+mi\s+nombre)\b", text)
+    return bool(own_verb or own_records)
+
+
+def own_policy_request(message):
+    """Pedir las pólizas propias no requiere conocer previamente su identificador."""
+    text = normalize(message)
+    if (literal_ids(message, "S") or requests_third_party_data(message)
+            or re.search(r"\b(?:recomiend\w*|recomendacion\w*|aconsej\w*|conviene)\b", text)
+            or re.search(r"\b(?:c\d+|dni|documento|esposo|esposa|pareja|hermano|hermana|padre|madre|hijo|hija|terceros?|otra persona|otro cliente|otro usuario|los suyos|las suyas|los de|las de|ellos|ellas|nosotros|nosotras)\b", text)
+            or re.search(r"\b\d{8}\b|\b(?:y|o)\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+\b", message)
+            or re.search(r"\b(?:cobertur\w*|cubr\w*|deducible\w*|aprueb\w*|aprob\w*|actualiz\w*|modific\w*|elimin\w*|borr\w*)\b", text)):
+        return False
+    own = re.search(r"\b(?:mis?\s+(?:polizas?|seguros?)|(?:polizas?|seguros?)\s+(?:tengo|a\s+mi\s+nombre))\b", text)
+    request = re.search(r"\b(?:cual(?:es)?|que|dime|muestr\w*|consult\w*|tengo|listar|lista|ver|conocer)\b", text)
+    return bool(own and request)
+
+
+def general_coverage_request(message):
+    """Una cobertura general con ramo explícito no necesita inventar un evento."""
+    text = normalize(message)
+    return bool(len(supported_branches(message)) == 1
+                and supported_events(message) == {"desconocido"}
+                and not requests_third_party_data(message)
+                and not re.search(r"\b(?:recomiend\w*|recomendacion\w*|aconsej\w*|conviene)\b", text)
+                and not re.search(r"\b(?:c\d+|dni|documento|esposo|esposa|pareja|hermano|hermana|padre|madre|hijo|hija|terceros?|otra persona|otro cliente)\b", text)
+                and re.search(r"\b(?:cual(?:es)?\s+(?:es|son)\s+(?:su|la|mi|sus|las|mis)\s+coberturas?|que\s+(?:me\s+)?cubre\s+(?:mi|el)\s+seguro|coberturas?\s+(?:de|tiene|incluye))\b", text))
 
 
 def schema_for_message(message):
@@ -99,6 +139,14 @@ def schema_for_message(message):
     properties["evento"]["enum"] = sorted(supported_events(message))
     properties["trimestre"]["enum"] = sorted(literal_quarters(message)) + [None]
     properties["anio"]["enum"] = sorted(literal_years(message)) + [None]
+    if self_claim_history_request(message):
+        properties["intent"]["enum"] = ["historial_siniestros"]
+    elif own_policy_request(message):
+        properties["intent"]["enum"] = ["consultar_polizas"]
+    elif general_coverage_request(message):
+        properties["intent"]["enum"] = ["cobertura"]
+    elif literal_ids(message, "S"):
+        properties["intent"]["enum"].remove("historial_siniestros")
     return schema
 
 
@@ -107,6 +155,14 @@ def validate_plan(plan, message):
         raise PlanError("La interpretación contiene campos ausentes o no permitidos.")
     if plan["intent"] not in INTENTS:
         raise PlanError("La intención no está permitida.")
+    if self_claim_history_request(message) and plan["intent"] not in {"historial_siniestros", "estado_siniestro"}:
+        raise PlanError("La consulta pide registros propios; no corresponde interpretarla como información de otra persona.")
+    if own_policy_request(message) and plan["intent"] != "consultar_polizas":
+        raise PlanError("La consulta pide identificar pólizas propias; no requiere un evento ni información de otra persona.")
+    if general_coverage_request(message) and plan["intent"] != "cobertura":
+        raise PlanError("El mensaje pide la cobertura general del ramo indicado, sin un evento concreto.")
+    if plan["intent"] == "historial_siniestros" and literal_ids(message, "S"):
+        raise PlanError("El mensaje identifica un expediente concreto; corresponde consultar ese código.")
     checked = dict(plan)
     for key, prefix in (("siniestro_id", "S"), ("poliza_id", "POL")):
         value = plan[key]
@@ -158,13 +214,18 @@ def offline_plan(message):
         plan["intent"] = "operacion_no_permitida"
     elif requests_third_party_data(message):
         plan["intent"] = "consulta_tercero"
-    elif any(word in text for word in ("fondo mutuo", "invertir", "inversion", "me conviene", "demandar", "medicamento", "diagnostico")):
+    elif (any(word in text for word in ("fondo mutuo", "invertir", "inversion", "me conviene", "demandar", "medicamento", "diagnostico"))
+          or re.search(r"\b(?:recomiend\w*|recomendacion\w*|aconsej\w*)\b", text)):
         plan["intent"] = "asesoria"
     elif "rechaz" in text and ("cuantos" in text or "trimestre" in text):
         plan["intent"] = "rechazos_trimestre"
         quarters, years = literal_quarters(message), literal_years(message)
         plan["trimestre"] = next(iter(quarters)) if len(quarters) == 1 else None
         plan["anio"] = next(iter(years)) if len(years) == 1 else None
+    elif self_claim_history_request(message):
+        plan["intent"] = "historial_siniestros"
+    elif own_policy_request(message):
+        plan["intent"] = "consultar_polizas"
     elif plan["siniestro_id"]:
         plan["intent"] = "motivo_rechazo" if "rechaz" in text else "estado_siniestro"
     elif plan["ramo"] or plan["poliza_id"]:
@@ -190,7 +251,14 @@ class Planner:
             "evento: choque para colisión, robo para robo, cirugia_programada solo si dice cirugía/operación programada; "
             "si no se identifica usa desconocido. Nunca deduzcas ramo o evento de un identificador. "
             "Para '¿cuánto me cubre?' sin más datos, intent=aclaracion, ramo=null y evento=desconocido. "
-            "estado_siniestro para consultar cómo va un expediente, motivo_rechazo para explicar rechazo, "
+            "historial_siniestros para preguntar por siniestros propios sin conocer sus códigos: "
+            "'he tenido algún siniestro', 'tengo siniestros' o 'muéstrame mis siniestros'. "
+            "Estas consultas son propias, no consulta_tercero: la sesión ya identifica al usuario y no necesita un código. "
+            "consultar_polizas para identificar o listar las pólizas propias: 'dime cuál es mi póliza', "
+            "'qué seguros tengo' o 'muéstrame mis pólizas'. No exige código ni evento: la sesión identifica al titular. "
+            "Si pregunta 'cuál es su cobertura' de su seguro vehicular, salud o vida, intent=cobertura "
+            "con el ramo literal y evento=desconocido; pide un resumen general, no hace falta inventar un siniestro. "
+            "estado_siniestro para consultar cómo va un expediente cuyo código se menciona, motivo_rechazo para explicar rechazo, "
             "cobertura para evento/seguro, rechazos_trimestre para conteos, asesoria para recomendaciones, "
             "operacion_no_permitida para cambiar datos, consulta_tercero para información de otra persona. "
             "En rechazos_trimestre copia trimestre y año del mensaje; para otras intenciones ambos son null. "
@@ -214,4 +282,3 @@ class Planner:
                     "La interpretación anterior no cumplió el esquema o inventó entidades. "
                     "Repite una sola vez con los siete campos exactos, null donde no haya evidencia "
                     "literal y sin respuestas, SQL, roles, fechas ni campos adicionales.")})
-        raise ModelError("No se pudo interpretar la consulta.")

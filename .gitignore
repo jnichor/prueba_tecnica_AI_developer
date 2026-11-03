@@ -7,10 +7,9 @@ __pycache__/
 .pytest_cache/
 ENUNCIADO.pdf
 salidas/
+salidas_*/
 *.jsonl
 .runtime/
-salidas_ollama/
-salidas_ollama_corregido/
 .entrega/
 # Muestras ficticias revisadas que forman parte de la entrega pública.
 !entrega/muestra_interacciones.jsonl

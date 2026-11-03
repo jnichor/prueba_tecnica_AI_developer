@@ -11,7 +11,8 @@ from unittest.mock import Mock, patch
 from seguros.agent import Agent
 from seguros.model import ModelError
 from seguros.planning import (PLAN_SCHEMA, STRATEGY, PlanError, Planner, offline_plan,
-                               validate_plan, schema_for_message)
+                               validate_plan, schema_for_message, self_claim_history_request,
+                               requests_third_party_data, own_policy_request, general_coverage_request)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -44,6 +45,104 @@ class FakeModel:
 
 
 class PlanValidationTests(unittest.TestCase):
+    def test_own_policy_discovery_does_not_need_a_policy_code(self):
+        for message in ("dime cual es mi poliza", "¿Cuál es mi póliza?", "Muéstrame mis pólizas",
+                        "¿Qué seguros tengo?", "Quiero consultar mis seguros", "Listar pólizas a mi nombre"):
+            with self.subTest(message=message):
+                self.assertTrue(own_policy_request(message))
+                self.assertEqual(offline_plan(message)["intent"], "consultar_polizas")
+                self.assertEqual(schema_for_message(message)["properties"]["intent"]["enum"], ["consultar_polizas"])
+                self.assertIsNone(offline_plan(message)["poliza_id"])
+
+    def test_wrong_policy_interpretation_is_retried_without_changing_identity(self):
+        message = "dime cual es mi poliza"
+        bad = plan(intent="consulta_tercero", siniestro_id=None)
+        correct = plan(intent="consultar_polizas", siniestro_id=None)
+        with self.assertRaises(PlanError):
+            validate_plan(bad, message)
+        model = FakeModel([bad, correct])
+        self.assertEqual(Planner(model).interpret(message, {"rol": "cliente", "usuario_id": "C001"}), correct)
+        self.assertEqual(len(model.calls), 2)
+
+    def test_policy_discovery_does_not_reclassify_other_owners_or_coverage(self):
+        for message in ("¿Qué pólizas tiene mi esposo?", "Dime mis pólizas y las de C002", "Dime mis pólizas y las de Pedro",
+                        "Muéstrame mi póliza y la de mi hermana", "¿Cuánto me cubre?",
+                        "¿Mi seguro vehicular cubre un choque?", "Actualiza mi póliza"):
+            with self.subTest(message=message):
+                self.assertFalse(own_policy_request(message))
+        self.assertEqual(offline_plan("¿Cuánto me cubre?")["intent"], "aclaracion")
+
+    def test_general_vehicle_coverage_preserves_unknown_event(self):
+        message = "deseo consultar sobre mi seguro vehicular, cual es su cobertura"
+        self.assertTrue(general_coverage_request(message))
+        parsed = offline_plan(message)
+        self.assertEqual(parsed["intent"], "cobertura")
+        self.assertEqual(parsed["ramo"], "vehicular")
+        self.assertEqual(parsed["evento"], "desconocido")
+        self.assertEqual(schema_for_message(message)["properties"]["intent"]["enum"], ["cobertura"])
+        with self.assertRaises(PlanError):
+            validate_plan({**parsed, "intent": "aclaracion"}, message)
+        with self.assertRaises(PlanError):
+            validate_plan({**parsed, "evento": "choque"}, message)
+
+    def test_recommendations_are_not_forced_into_policy_or_general_coverage(self):
+        for message in ("qué seguro me recomiendas", "qué seguros tengo y cuál me recomiendas",
+                        "¿Cuál es mi póliza y me conviene cambiarla?",
+                        "¿Qué cubre mi seguro vehicular y cuál me aconsejas?"):
+            with self.subTest(message=message):
+                self.assertFalse(own_policy_request(message))
+                self.assertFalse(general_coverage_request(message))
+                self.assertEqual(offline_plan(message)["intent"], "asesoria")
+
+    def test_narrated_supported_event_is_not_a_general_coverage_request(self):
+        for message, event in (("Mi auto chocó ayer, ¿cuál es su cobertura vehicular?", "choque"),
+                               ("Anoche me robaron el auto, ¿cuál es su cobertura?", "robo")):
+            with self.subTest(message=message):
+                self.assertFalse(general_coverage_request(message))
+                self.assertEqual(offline_plan(message)["evento"], event)
+
+    def test_own_history_phrasings_do_not_require_a_claim_identifier(self):
+        variants = ("¿he tenido algun siniestro?", "Yo he tenido algún siniestro?",
+                    "¿Tengo siniestros?", "¿Qué siniestros tengo?", "Muéstrame mis siniestros",
+                    "Historial de mis reclamos", "Muéstrame mi historial de siniestros",
+                    "¿Qué siniestros he tenido?", "¿He tenido alguna reclamación?")
+        for message in variants:
+            with self.subTest(message=message):
+                self.assertTrue(self_claim_history_request(message))
+                parsed = offline_plan(message)
+                self.assertEqual(parsed["intent"], "historial_siniestros")
+                self.assertIsNone(parsed["siniestro_id"])
+                self.assertEqual(schema_for_message(message)["properties"]["intent"]["enum"], ["historial_siniestros"])
+
+    def test_history_target_must_be_unambiguously_self(self):
+        variants = ("¿Qué siniestros ha tenido mi esposo?", "¿He tenido siniestros yo y mi esposo?",
+                    "Tengo siniestros de C002", "Muéstrame mis reclamos y los suyos",
+                    "¿Qué siniestros tiene el DNI 40827163?", "Yo y Pedro tenemos siniestros",
+                    "¿Ha habido algún siniestro?", "¿Qué siniestros tengo? S-5521")
+        for message in variants:
+            with self.subTest(message=message):
+                self.assertFalse(self_claim_history_request(message))
+        self.assertTrue(requests_third_party_data("¿Qué siniestros ha tenido mi esposo?"))
+        self.assertFalse(requests_third_party_data("Mi hijo chocó mi auto ayer. ¿Me cubre?"))
+
+    def test_wrong_third_party_plan_for_self_history_is_retried(self):
+        message = "¿he tenido algun siniestro?"
+        bad = plan(intent="consulta_tercero", siniestro_id=None)
+        correct = plan(intent="historial_siniestros", siniestro_id=None)
+        with self.assertRaises(PlanError):
+            validate_plan(bad, message)
+        model = FakeModel([bad, correct])
+        self.assertEqual(Planner(model).interpret(message, {"rol": "cliente", "usuario_id": "C001"}), correct)
+        self.assertEqual(len(model.calls), 2)
+
+    def test_explicit_claim_identifiers_preserve_single_record_lookup(self):
+        message = "¿Qué estado tiene mi siniestro S-5521?"
+        self.assertFalse(self_claim_history_request(message))
+        self.assertNotIn("historial_siniestros", schema_for_message(message)["properties"]["intent"]["enum"])
+        self.assertEqual(offline_plan(message)["intent"], "estado_siniestro")
+        with self.assertRaises(PlanError):
+            validate_plan(plan(intent="historial_siniestros"), message)
+
     def test_valid_identifier_is_normalized_without_guessing(self):
         checked = validate_plan(plan(siniestro_id="s-5521"), "¿Cómo va s-5521?")
         self.assertEqual(checked["siniestro_id"], "S-5521")
@@ -152,6 +251,28 @@ class AgentPlanningTests(unittest.TestCase):
         self.assertNotIn("Conductor en estado de ebriedad", text)
         self.assertNotIn("SELECT", text)
         self.assertEqual(result["tokens_total"], 40)
+
+    def test_own_history_model_request_lists_authorized_records_without_asking_id(self):
+        correct = plan(intent="historial_siniestros", siniestro_id=None)
+        self.agent.model = FakeModel([correct, correct])
+        for message in ("¿he tenido algun siniestro?", "Yo he tenido algun siniestro?"):
+            with self.subTest(message=message):
+                result = self.agent.respond(message, self.session)
+                self.assertEqual(result["estado"], "ok")
+                self.assertIn("siniestros:S-5521", result["fuentes"])
+                self.assertIn("S-5521", result["respuesta"])
+                self.assertNotIn("Indica un único código", result["respuesta"])
+                self.assertNotIn("otra persona", result["respuesta"])
+                self.assertEqual(result["plan_validado"]["intent"], "historial_siniestros")
+                self.assertEqual(result["llm_llamadas"], 1)
+                self.assertEqual(result["tokens_total"], 40)
+
+    def test_null_claim_status_plan_for_explicit_own_history_uses_safe_history_route(self):
+        self.agent.model = FakeModel([plan(siniestro_id=None)])
+        result = self.agent.respond("Muéstrame mis siniestros", self.session)
+        self.assertEqual(result["estado"], "ok")
+        self.assertIn("siniestros:S-5521", result["fuentes"])
+        self.assertNotIn("Indica un único código", result["respuesta"])
 
     def test_injected_description_never_reaches_model(self):
         with (ROOT / "datos/siniestros.csv").open(encoding="utf-8-sig", newline="") as stream:

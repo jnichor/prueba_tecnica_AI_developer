@@ -66,8 +66,6 @@ class OllamaModel:
             if not isinstance(message, dict):
                 raise ModelError("Ollama no devolvió un mensaje válido.")
             event.update({"estado": "ok", "respuesta_modelo": message,
-                          "prompt_eval_count": result.get("prompt_eval_count"),
-                          "eval_count": result.get("eval_count"),
                           "done_reason": result.get("done_reason")})
             return message
         except (HTTPError, URLError, TimeoutError, OSError, ValueError) as exc:

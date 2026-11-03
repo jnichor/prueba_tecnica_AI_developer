@@ -1,7 +1,10 @@
 """Reglas y ataques al plan con clasificador simulado; sin inferencias reales."""
 
+import csv
 import json
 from pathlib import Path
+import re
+import shutil
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -44,11 +47,18 @@ class BusinessRuleTests(unittest.TestCase):
         self.instances = 0
         self.cases = json.loads((ROOT / "casos_prueba/casos_prueba.json").read_text(encoding="utf-8"))["casos"]
 
-    def agent(self, value):
+    def agent(self, value, root=ROOT):
         self.instances += 1
-        instance = Agent(root=ROOT, output_dir=self.output / str(self.instances), modo="ollama")
+        instance = Agent(root=root, output_dir=self.output / str(self.instances), modo="ollama")
         instance.model = PlannedModel(value)
         return instance
+
+    @staticmethod
+    def claims_for(user_id, root=ROOT):
+        with (root / "datos/polizas.csv").open(encoding="utf-8-sig", newline="") as stream:
+            policies = {p["poliza_id"] for p in csv.DictReader(stream) if p["cliente_id"] == user_id}
+        with (root / "datos/siniestros.csv").open(encoding="utf-8-sig", newline="") as stream:
+            return {s["siniestro_id"] for s in csv.DictReader(stream) if s["poliza_id"] in policies}
 
     def assert_ticket(self, instance, result):
         tickets = [h["resultado"] for h in result["herramientas"]
@@ -174,6 +184,145 @@ class BusinessRuleTests(unittest.TestCase):
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0]["estado"], "error")
         self.assertEqual(records[0]["usuario"]["usuario_id"], "C001")
+
+    def test_historial_propio_sin_codigo_resuelve_las_dos_frases_del_usuario(self):
+        expected = self.claims_for("C001")
+        self.assertTrue(expected)
+        for message in ("¿he tenido algun siniestro?", "Yo he tenido algun siniestro?"):
+            with self.subTest(message=message):
+                instance = self.agent(plan("historial_siniestros"))
+                result = instance.respond(message, {"rol": "cliente", "usuario_id": "C001"})
+                self.assertEqual(result["estado"], "ok")
+                cited = {x.removeprefix("siniestros:") for x in result["fuentes"] if x.startswith("siniestros:")}
+                self.assertEqual(cited, expected)
+                self.assertFalse(any(t["nombre"] == "escalar_humano" for t in result["herramientas"]))
+                self.assertNotIn("necesito el código", result["respuesta"].lower())
+                self.assertEqual(len(instance.model.calls), 1)
+                self.assertEqual(result["fecha_referencia"], "2026-10-15")
+
+    def test_historial_propio_acepta_parafrasis_y_no_esta_atado_a_c001(self):
+        for user in ("C001", "C002", "C040"):
+            expected = self.claims_for(user)
+            for message in ("¿Tengo siniestros registrados?", "Quiero consultar mi historial de siniestros.",
+                            "¿Puedes mostrarme mis siniestros?"):
+                with self.subTest(user=user, message=message):
+                    instance = self.agent(plan("historial_siniestros"))
+                    result = instance.respond(message, {"rol": "cliente", "usuario_id": user})
+                    self.assertEqual(result["estado"], "ok")
+                    cited = {x.removeprefix("siniestros:") for x in result["fuentes"] if x.startswith("siniestros:")}
+                    self.assertEqual(cited, expected)
+                    self.assertNotIn("nunca", result["respuesta"].lower())
+                    self.assertFalse(any(t["nombre"] == "escalar_humano" for t in result["herramientas"]))
+
+    def test_historial_cero_registros_en_fixture_no_afirma_nunca(self):
+        fixture = self.output / "fixture_historial"
+        shutil.copytree(ROOT / "datos", fixture / "datos")
+        shutil.copytree(ROOT / "condicionados", fixture / "condicionados")
+        owned = self.claims_for("C001")
+        path = fixture / "datos/siniestros.csv"
+        with path.open(encoding="utf-8-sig", newline="") as stream:
+            reader = csv.DictReader(stream)
+            fields = reader.fieldnames
+            rows = [r for r in reader if r["siniestro_id"] not in owned]
+        self.assertTrue(rows)  # Otros clientes conservan siniestros en el mismo conjunto.
+        with path.open("w", encoding="utf-8", newline="") as stream:
+            writer = csv.DictWriter(stream, fieldnames=fields)
+            writer.writeheader()
+            writer.writerows(rows)
+        instance = self.agent(plan("historial_siniestros"), root=fixture)
+        result = instance.respond("¿he tenido algun siniestro?", {"rol": "cliente", "usuario_id": "C001"})
+        self.assertEqual(result["estado"], "ok")
+        self.assertFalse(any(f.startswith("siniestros:") for f in result["fuentes"]))
+        self.assertTrue(any(p in result["respuesta"].lower() for p in ("no encontr", "no hay", "sin registros")))
+        self.assertNotIn("nunca", result["respuesta"].lower())
+
+    def test_wrong_intent_does_not_deny_clear_own_history(self):
+        for wrong_intent in ("consulta_tercero", "estado_siniestro"):
+            with self.subTest(intent=wrong_intent):
+                instance = self.agent(plan(wrong_intent))
+                original = instance.model.chat
+
+                def chat(messages, tools, format_schema=None):
+                    instance.model.value = plan(wrong_intent if not instance.model.calls else "historial_siniestros")
+                    return original(messages, tools, format_schema=format_schema)
+
+                instance.model.chat = chat
+                result = instance.respond("Yo he tenido algun siniestro?", {"rol": "cliente", "usuario_id": "C001"})
+                self.assertEqual(result["estado"], "ok")
+                self.assertIn("siniestros:S-5521", result["fuentes"])
+                self.assertFalse(any(t["nombre"] == "escalar_humano" for t in result["herramientas"]))
+                self.assertLessEqual(len(instance.model.calls), 2)
+
+    def test_consulta_esposo_o_mixta_no_se_convierte_en_historial_propio(self):
+        for message in ("¿He tenido siniestros? También quiero los de mi esposo.",
+                        "¿Yo he tenido siniestros? Muéstrame también S-5524."):
+            with self.subTest(message=message):
+                instance = self.agent(plan("historial_siniestros"))
+                result = instance.respond(message, {"rol": "cliente", "usuario_id": "C001"})
+                self.assertNotIn("siniestros:S-5524", result["fuentes"])
+                self.assertNotIn("ebriedad", result["respuesta"].lower())
+                self.assertTrue(any(p in result["respuesta"].lower() for p in (
+                    "no puedo", "no seleccionar", "autoriz", "precis", "aclar", "revisión", "revision", "no pude")))
+
+    def test_screenshot_consulta_poliza_propia_sin_evento(self):
+        instance = self.agent(plan("consultar_polizas"))
+        result = instance.respond("dime cual es mi poliza", {"rol": "cliente", "usuario_id": "C001"})
+        self.assertEqual(result["estado"], "ok")
+        self.assertIn("polizas:POL-1001", result["fuentes"])
+        self.assertIn("Auto Total", result["respuesta"])
+        self.assertNotIn("necesito el evento", result["respuesta"].lower())
+        self.assertFalse(any(t["nombre"] == "escalar_humano" for t in result["herramientas"]))
+
+    def test_listado_multipoliza_no_selecciona_una_arbitrariamente(self):
+        instance = self.agent(plan("consultar_polizas"))
+        result = instance.respond("¿Cuáles son mis pólizas?", {"rol": "cliente", "usuario_id": "C008"})
+        with (ROOT / "datos/polizas.csv").open(encoding="utf-8-sig", newline="") as stream:
+            expected = {p["poliza_id"] for p in csv.DictReader(stream) if p["cliente_id"] == "C008"}
+        cited = {f.removeprefix("polizas:") for f in result["fuentes"] if f.startswith("polizas:")}
+        self.assertEqual(cited, expected)
+        self.assertTrue(all(identifier in result["respuesta"] for identifier in expected))
+        self.assertIn("vencida", result["respuesta"].lower())
+        self.assertIn("vigente", result["respuesta"].lower())
+
+    def test_screenshot_cobertura_general_vehicular_responde_producto(self):
+        instance = self.agent(plan("cobertura", ramo="vehicular"))
+        result = instance.respond("deseo consultar sobre mi seguro vehicular, cual es su cobertura", {
+            "rol": "cliente", "usuario_id": "C001"})
+        self.assertEqual(result["estado"], "ok")
+        self.assertIn("polizas:POL-1001", result["fuentes"])
+        self.assertIn("condicionados/vehicular.md, Artículo 1", result["fuentes"])
+        self.assertIn("robo total", result["respuesta"].lower())
+        self.assertIn("auto total", result["respuesta"].lower())
+        self.assertNotIn("cirug", result["respuesta"].lower())
+        self.assertNotIn("necesito el evento", result["respuesta"].lower())
+        self.assertFalse(any(t["nombre"] == "escalar_humano" for t in result["herramientas"]))
+
+    def test_cobertura_por_codigo_sin_ramo_tambien_resume_producto(self):
+        instance = self.agent(plan("cobertura", poliza_id="POL-1001"))
+        result = instance.respond("qué cubre mi póliza POL-1001", {"rol": "cliente", "usuario_id": "C001"})
+        self.assertEqual(result["estado"], "ok")
+        self.assertIn("condicionados/vehicular.md, Artículo 1", result["fuentes"])
+        self.assertIn("robo total", result["respuesta"].lower())
+        self.assertNotIn("cirug", result["respuesta"].lower())
+
+    def test_auto_esencial_identifica_coberturas_no_incluidas(self):
+        instance = self.agent(plan("cobertura", poliza_id="POL-1003"))
+        result = instance.respond("qué cubre mi póliza POL-1003", {"rol": "cliente", "usuario_id": "C003"})
+        self.assertEqual(result["estado"], "ok")
+        self.assertIn("Auto Esencial", result["respuesta"])
+        for cobertura in ("robo parcial de accesorios", "rotura de lunas", "auto de reemplazo"):
+            with self.subTest(cobertura=cobertura):
+                lineas = [line.lower() for line in result["respuesta"].splitlines() if cobertura in line.lower()]
+                self.assertTrue(lineas, result["respuesta"])
+                self.assertTrue(any(re.search(r"\bno\b", line.split(":", 1)[-1]) or "no incluido" in line
+                                    for line in lineas), lineas)
+        self.assertRegex(result["respuesta"], r"50[,. ]?000")
+
+    def test_poliza_ajena_no_se_revela_con_plan_de_listado(self):
+        instance = self.agent(plan("consultar_polizas", poliza_id="POL-1003"))
+        result = instance.respond("dime la póliza POL-1003", {"rol": "cliente", "usuario_id": "C001"})
+        self.assertNotIn("polizas:POL-1003", result["fuentes"])
+        self.assertNotIn("Auto Esencial", result["respuesta"])
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@
 
 Prueba técnica desarrollada por **Jesus Nicho Rosado**. La solución consulta datos y condiciones de seguros, explica sus fuentes y deriva casos a atención humana. Usa Python y un modelo local mediante Ollama.
 
-**Última validación:** 12 casos correctos, 179 pruebas aprobadas y nueve llamadas reales a `qwen2.5:7b`. Tres casos se resolvieron con controles previos sin IA. Los datos son ficticios.
+La validación del 3 de noviembre de 2026 documenta 12 casos correctos con `qwen2.5:7b` y 216 pruebas aprobadas. Tres casos se resolvieron con controles previos sin IA. Además se verificaron consultas naturales de historial, póliza y cobertura en la consola. Los datos son ficticios.
 
 ## Inicio rápido con IA
 
@@ -16,7 +16,7 @@ python run_casos.py --evaluar
 
 El comando comprueba Ollama, reutiliza un servicio y modelo disponibles, y prepara lo que falte. En Windows x64 puede descargar la distribución portátil oficial verificada y el modelo en `.runtime/`, sin instalar un servicio del sistema ni paquetes Python.
 
-**Tiempo de inicio:** con el modelo disponible, el lote de prueba requirió 32,7 segundos de inferencia en el equipo utilizado. La primera preparación necesita Internet y aproximadamente 6.3 GB de descarga, más espacio de extracción; puede superar cinco minutos según la red y el equipo. No se presenta esa descarga como una instalación inferior a cinco minutos.
+**Tiempo de inicio:** con el modelo disponible, el último lote de 12 casos requirió 32,419 segundos de inferencia en el equipo utilizado. La primera preparación necesita Internet y aproximadamente 6.3 GB de descarga, más espacio de extracción; puede superar cinco minutos según la red y el equipo. No se presenta esa descarga como una instalación inferior a cinco minutos.
 
 Para preparar el entorno sin ejecutar los casos:
 
@@ -45,6 +45,8 @@ python consultar.py --rol cliente --usuario C001 --interactivo
 ~~~
 
 Escribe `salir` o `exit` para terminar. La sesión conserva su identidad, pero las consultas son independientes: no hay memoria de conversación.
+
+También puedes preguntar **«¿he tenido algun siniestro?»** o **«Yo he tenido algun siniestro?»**, sin conocer un código. El agente lista los registros de la sesión autenticada; el código queda como opción para pedir detalles. [Evidencia de esas consultas reales](entrega/CONSULTAS_HISTORIAL.md).
 
 ### Consultas en lote: los 12 casos
 
@@ -87,9 +89,15 @@ El programa:
 1. Prepara Ollama y lee las 12 consultas, roles e identificadores de `casos_prueba/casos_prueba.json`.
 2. En nueve casos, Qwen interpreta la intención; en tres, actúan controles programados de privacidad, inversión o cambios no permitidos.
 3. Consulta CSV y artículos respetando los permisos de sesión, responde con fuentes y registra herramientas, tokens y tiempos.
-4. Evalúa las respuestas guardadas y genera informes Markdown y JSON.
+4. Comprueba las respuestas con reglas programadas y guarda su informe en Markdown y JSON.
 
-**Qwen no califica las respuestas.** El evaluador aplica reglas programadas y contrasta hechos y evidencias con los CSV y condicionados. Detecta contradicciones, promesas indebidas y fuentes sin respaldo.
+Las comprobaciones buscan contradicciones, promesas indebidas y fuentes sin respaldo.
+
+Para revisar respuestas guardadas sin volver a ejecutar el agente:
+
+~~~powershell
+python evaluar.py --entrada salidas_ollama_corregido/respuestas.json
+~~~
 
 También se revisa que:
 
@@ -125,7 +133,7 @@ Si preguntas por **S-5521** y Qwen interpreta **S-5522**, el programa detecta qu
 
 No se calcula un costo monetario: Ollama local no cobra una tarifa por token.
 
-Como referencia, el lote de 12 casos incluido en la entrega usó **3549 tokens de entrada + 517 de salida = 4066 en total**.
+El lote actual conservado en la entrega usó **5349 tokens de entrada + 513 de salida = 5862 en total** para el agente. Las cuatro consultas adicionales de consola usaron 2537 tokens y se contabilizan por separado.
 
 Las pruebas del programa verifican sus funciones y controles. La evaluación de la entrega revisa las **12 respuestas finales**, también con asistencia de Codex: las doce cumplieron sus comprobaciones. Nueve consultas llamaron a Qwen; tres se resolvieron antes mediante controles de privacidad, recomendaciones de inversión y cambios no permitidos.
 
@@ -150,6 +158,7 @@ Dentro de `salidas_ollama_corregido/`:
 | [entrega/evaluacion_automatica.md](entrega/evaluacion_automatica.md) | Comprobaciones automáticas por criterio |
 | [entrega/evaluacion_automatica.json](entrega/evaluacion_automatica.json) | Evaluación en formato estructurado |
 | [entrega/VERIFICACION.md](entrega/VERIFICACION.md) | Evidencia del lote y matriz de las ocho reglas |
+| [entrega/CONSULTAS_HISTORIAL.md](entrega/CONSULTAS_HISTORIAL.md) | Las cuatro consultas reales de historial, póliza y cobertura |
 | [entrega/fuentes_sha256.json](entrega/fuentes_sha256.json) | Huellas para comprobar los archivos de evidencia |
 
 Las nuevas ejecuciones escriben en `salidas_ollama_corregido/`. Esas carpetas de trabajo no forman parte de la entrega publicada. Los artefactos seleccionados están en `entrega/`.

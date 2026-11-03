@@ -17,7 +17,7 @@ def main():
     parser.add_argument("--modelo", default=None)
     parser.add_argument("--salida", type=Path, default=None)
     parser.add_argument("--solo-preparar", action="store_true", help="Prepara IA local sin ejecutar los casos.")
-    parser.add_argument("--evaluar", action="store_true", help="Evalúa y guarda un informe automático después de ejecutar el lote.")
+    parser.add_argument("--evaluar", action="store_true", help="Evalúa el lote con las comprobaciones del programa.")
     args = parser.parse_args()
     modelo = args.modelo
     if args.modo == "ollama":
@@ -49,8 +49,8 @@ def main():
         from seguros.evaluation import evaluar_reporte, guardar_informe
         report = evaluar_reporte(outputs, root=ROOT)
         guardar_informe(report, args.salida / "respuestas.json")
-        print("Evaluación automática:", json.dumps(report["resumen"], ensure_ascii=False))
-        return 0 if report["todos_cumplen"] else 1
+        print("Comprobaciones del programa:", json.dumps(report["resumen"], ensure_ascii=False))
+        return int(not report["todos_cumplen"])
     return int(any(output["estado"] == "error" for output in outputs))
 
 

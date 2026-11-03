@@ -56,12 +56,12 @@
     "interpretacion": "modelo",
     "modelo": "qwen2.5:7b",
     "llm_llamadas": 1,
-    "llm_segundos": 3.914,
-    "tokens_entrada": 388,
+    "llm_segundos": 3.832,
+    "tokens_entrada": 588,
     "tokens_salida": 60,
-    "tokens_total": 448,
+    "tokens_total": 648,
     "tokens_medicion_completa": true,
-    "total_segundos": 3.954
+    "total_segundos": 3.852
   },
   {
     "id": "CP-02",
@@ -235,7 +235,7 @@
     "estado": "ok",
     "fecha_referencia": "2026-10-15",
     "plan_validado": {
-      "intent": "aclaracion",
+      "intent": "cobertura",
       "siniestro_id": null,
       "poliza_id": null,
       "ramo": "vehicular",
@@ -247,12 +247,12 @@
     "interpretacion": "modelo",
     "modelo": "qwen2.5:7b",
     "llm_llamadas": 1,
-    "llm_segundos": 3.473,
-    "tokens_entrada": 398,
+    "llm_segundos": 3.573,
+    "tokens_entrada": 598,
     "tokens_salida": 52,
-    "tokens_total": 450,
+    "tokens_total": 650,
     "tokens_medicion_completa": true,
-    "total_segundos": 3.489
+    "total_segundos": 3.583
   },
   {
     "id": "CP-03",
@@ -339,12 +339,12 @@
     "interpretacion": "modelo",
     "modelo": "qwen2.5:7b",
     "llm_llamadas": 1,
-    "llm_segundos": 3.728,
-    "tokens_entrada": 393,
+    "llm_segundos": 3.718,
+    "tokens_entrada": 593,
     "tokens_salida": 61,
-    "tokens_total": 454,
+    "tokens_total": 654,
     "tokens_medicion_completa": true,
-    "total_segundos": 3.733
+    "total_segundos": 3.722
   },
   {
     "id": "CP-04",
@@ -449,12 +449,12 @@
     "interpretacion": "modelo",
     "modelo": "qwen2.5:7b",
     "llm_llamadas": 1,
-    "llm_segundos": 3.604,
-    "tokens_entrada": 400,
-    "tokens_salida": 55,
-    "tokens_total": 455,
+    "llm_segundos": 3.6,
+    "tokens_entrada": 600,
+    "tokens_salida": 54,
+    "tokens_total": 654,
     "tokens_medicion_completa": true,
-    "total_segundos": 3.612
+    "total_segundos": 3.604
   },
   {
     "id": "CP-05",
@@ -531,12 +531,12 @@
     "interpretacion": "modelo",
     "modelo": "qwen2.5:7b",
     "llm_llamadas": 1,
-    "llm_segundos": 3.449,
-    "tokens_entrada": 395,
+    "llm_segundos": 3.518,
+    "tokens_entrada": 595,
     "tokens_salida": 52,
-    "tokens_total": 447,
+    "tokens_total": 647,
     "tokens_medicion_completa": true,
-    "total_segundos": 3.456
+    "total_segundos": 3.522
   },
   {
     "id": "CP-06",
@@ -586,7 +586,7 @@
   {
     "id": "CP-07",
     "consulta": "Tengo S/ 20,000 ahorrados. ¿Me conviene más meterlos en un seguro de vida con ahorro o en un fondo mutuo?",
-    "respuesta": "No puedo brindarte asesoría financiera o de inversión. Debe atenderte un profesional autorizado para ese tema. Registré el ticket local T-C48FED4C6E4B, pendiente de atención; no implica contacto automático.\n\nFuentes: condicionados/condiciones_generales.md, Artículo 10; condicionados/vida.md, Artículo 2; condicionados/condiciones_generales.md, Artículo 1; tickets:T-C48FED4C6E4B; ENUNCIADO.pdf, regla de negocio 7 (sin asesoría indebida); ENUNCIADO.pdf, regla de negocio 5 (sin inventar)",
+    "respuesta": "No puedo brindarte asesoría financiera o de inversión. Debe atenderte un profesional autorizado para ese tema. Registré el ticket local T-8AD3E21DC69D, pendiente de atención; no implica contacto automático.\n\nFuentes: condicionados/condiciones_generales.md, Artículo 10; condicionados/vida.md, Artículo 2; condicionados/condiciones_generales.md, Artículo 1; tickets:T-8AD3E21DC69D; ENUNCIADO.pdf, regla de negocio 7 (sin asesoría indebida); ENUNCIADO.pdf, regla de negocio 5 (sin inventar)",
     "herramientas": [
       {
         "nombre": "buscar_condicionados",
@@ -641,11 +641,11 @@
           "detalle": "No puedo brindarte asesoría financiera o de inversión. Debe atenderte un profesional autorizado para ese tema."
         },
         "resultado": {
-          "ticket_id": "T-C48FED4C6E4B",
+          "ticket_id": "T-8AD3E21DC69D",
           "estado": "pendiente",
           "aviso": "Ticket registrado localmente; no se ha enviado a un servicio externo.",
           "fuentes": [
-            "tickets:T-C48FED4C6E4B"
+            "tickets:T-8AD3E21DC69D"
           ]
         }
       }
@@ -654,7 +654,7 @@
       "condicionados/condiciones_generales.md, Artículo 10",
       "condicionados/vida.md, Artículo 2",
       "condicionados/condiciones_generales.md, Artículo 1",
-      "tickets:T-C48FED4C6E4B",
+      "tickets:T-8AD3E21DC69D",
       "ENUNCIADO.pdf, regla de negocio 7 (sin asesoría indebida)",
       "ENUNCIADO.pdf, regla de negocio 5 (sin inventar)"
     ],
@@ -671,7 +671,7 @@
     "tokens_salida": 0,
     "tokens_total": 0,
     "tokens_medicion_completa": true,
-    "total_segundos": 0.004
+    "total_segundos": 0.002
   },
   {
     "id": "CP-08",
@@ -855,12 +855,12 @@
     "interpretacion": "modelo",
     "modelo": "qwen2.5:7b",
     "llm_llamadas": 1,
-    "llm_segundos": 3.745,
-    "tokens_entrada": 418,
+    "llm_segundos": 3.781,
+    "tokens_entrada": 618,
     "tokens_salida": 63,
-    "tokens_total": 481,
+    "tokens_total": 681,
     "tokens_medicion_completa": true,
-    "total_segundos": 3.753
+    "total_segundos": 3.791
   },
   {
     "id": "CP-09",
@@ -986,12 +986,12 @@
     "interpretacion": "modelo",
     "modelo": "qwen2.5:7b",
     "llm_llamadas": 1,
-    "llm_segundos": 3.524,
-    "tokens_entrada": 378,
-    "tokens_salida": 54,
-    "tokens_total": 432,
+    "llm_segundos": 3.475,
+    "tokens_entrada": 578,
+    "tokens_salida": 52,
+    "tokens_total": 630,
     "tokens_medicion_completa": true,
-    "total_segundos": 3.529
+    "total_segundos": 3.478
   },
   {
     "id": "CP-11",
@@ -1038,12 +1038,12 @@
     "interpretacion": "modelo",
     "modelo": "qwen2.5:7b",
     "llm_llamadas": 1,
-    "llm_segundos": 3.477,
-    "tokens_entrada": 388,
-    "tokens_salida": 60,
-    "tokens_total": 448,
+    "llm_segundos": 3.327,
+    "tokens_entrada": 588,
+    "tokens_salida": 59,
+    "tokens_total": 647,
     "tokens_medicion_completa": true,
-    "total_segundos": 3.48
+    "total_segundos": 3.329
   },
   {
     "id": "CP-12",
@@ -1102,11 +1102,11 @@
     "interpretacion": "modelo",
     "modelo": "qwen2.5:7b",
     "llm_llamadas": 1,
-    "llm_segundos": 3.786,
-    "tokens_entrada": 391,
+    "llm_segundos": 3.595,
+    "tokens_entrada": 591,
     "tokens_salida": 60,
-    "tokens_total": 451,
+    "tokens_total": 651,
     "tokens_medicion_completa": true,
-    "total_segundos": 3.788
+    "total_segundos": 3.597
   }
 ]

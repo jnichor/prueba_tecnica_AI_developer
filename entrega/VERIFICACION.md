@@ -5,22 +5,22 @@ Revisión de contenido con asistencia de Codex contra los CSV, los artículos y 
 - Modelo de la ejecución real: qwen2.5:7b.
 - Casos ejecutados: 12; evaluación automática: {'cumple_comprobaciones': 12}.
 - Llamadas reales: 9; controles sin modelo: CP-06, CP-07, CP-09.
-- Tokens: 3,549 de entrada + 517 de salida = 4,066.
-- Tiempo acumulado de inferencia: 32.700 segundos.
-- Suite de regresión registrada: 179 pruebas aprobadas.
+- Tokens: 5,349 de entrada + 513 de salida = 5,862.
+- Tiempo acumulado de inferencia: 32.419 segundos.
+- Suite de regresión registrada: 216 pruebas aprobadas.
 
 ## Matriz de las ocho reglas
 
-| Regla | Control aplicado | Evidencia |
+| Regla | Control | Evidencia revisada |
 | --- | --- | --- |
-| 1. Fecha de referencia | 15/10/2026 fija en sesión. Ayer/anoche se calculan como 14/10; próxima semana 19–25/10. | CP-02/04/05; test_mensaje_no_puede_redefinir_fecha_de_referencia y test_clock_override_is_not_an_event_date. |
-| 2. Identidad | Rol e identificador provienen de la sesión validada. El esquema no admite rol, permisos ni identidades añadidas. | CP-09; test_plan_con_respuesta_y_rol_inyectados_no_se_renderiza y test_sesion_invalida_se_audita_sin_consultar_modelo. |
-| 3. Privacidad | SQL contiene solo filas autorizadas y el resolutor comprueba titularidad; tercero y registro inexistente no se distinguen al cliente. | CP-06/11; test_cliente_no_puede_ver_siniestro_ajeno_aunque_plan_lo_pida y test_foreign_row_from_faulty_adapter_is_not_rendered. |
-| 4. Solo lectura | No hay acción de aprobación o modificación. El modelo no genera SQL; la herramienta mantiene su bloqueo de escrituras. | CP-09; test_modelo_no_puede_inyectar_sql_ni_herramientas y test_sql_inyectado_en_identificador_no_se_ejecuta. |
-| 5. Sin inventar | IDs y entidades deben aparecer en el mensaje. Datos o cláusulas ausentes/discrepantes provocan aclaración o ticket. | CP-03/05/11; test_identificador_inventado_por_modelo_no_dispara_sql, test_missing_clause_creates_real_ticket_without_explaining_rejection. |
-| 6. Trazabilidad | Cada afirmación de expediente o contrato enlaza registros o artículos recuperados; la respuesta no es prosa libre del modelo. | CP-01–05/08/12; trazas de herramientas, fuentes inline y evaluacion_automatica.json. |
-| 7. Sin asesoría indebida | No recomienda inversiones ni decisiones legales o médicas; registra derivación local, sin afirmar notificación externa. | CP-07; test_me_conviene_operarme_deriva_medica_y_no_inversion y test_asesoria_legal_y_medica_se_deriva. |
-| 8. Registro | Cada interacción, incluso denegación o fallo de modelo, conserva consulta, usuario, herramientas, respuesta y métricas. | respuestas.json: 12 casos; muestra_interacciones.jsonl: cinco registros; test_error_del_modelo_se_registra_sin_fallback y test_sesion_invalida_se_audita_sin_consultar_modelo. |
+| 1. Fecha | Referencia fija 15/10/2026; fechas relativas calculadas en código. | CP-02/04/05 y pruebas de fecha inyectada. |
+| 2. Identidad | La sesión aporta rol e identificador; el mensaje no cambia permisos. | CP-09, 12 sesiones de auditoría y pruebas de identidad inválida. |
+| 3. Privacidad | Consulta y respuesta limitadas a registros autorizados. | CP-06/11 y pruebas de terceros, mezclas y clientes distintos. |
+| 4. Solo lectura | No existe herramienta para aprobar ni modificar expedientes. | CP-09 y pruebas SQL/planes maliciosos. |
+| 5. Sin inventar | Datos registrados y cláusulas contrastados; se aclara o deriva lo insuficiente. | CP-03/04/05/10/11/12 y pruebas de datos ausentes o contradictorios. |
+| 6. Trazabilidad | Cada afirmación usa registros o artículos recuperados. | Las 12 respuestas y su evaluación automática. |
+| 7. Sin asesoría indebida | No recomienda inversiones; registra una derivación local real. | CP-07, ticket verificado y pruebas médicas/legales. |
+| 8. Registro | Se conservan consulta, sesión, herramientas, respuesta y métricas. | respuestas.json: 12 casos; muestra_interacciones.jsonl: cinco registros; pruebas de fallos de modelo y sesión. |
 
 ## Evidencia y límites
 

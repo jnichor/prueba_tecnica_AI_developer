@@ -70,11 +70,11 @@
         "modo": "ollama",
         "modelo": "qwen2.5:7b",
         "llm_llamadas": 1,
-        "llm_segundos": 3.914,
-        "total_segundos": 3.954,
-        "tokens_entrada": 388,
+        "llm_segundos": 3.832,
+        "total_segundos": 3.852,
+        "tokens_entrada": 588,
         "tokens_salida": 60,
-        "tokens_total": 448,
+        "tokens_total": 648,
         "tokens_medicion_completa": true
       },
       "respuesta": "El siniestro S-5521 figura en evaluación. Última actualización: 2026-10-09. [siniestros:S-5521] No hay monto de indemnización aprobado registrado; no puedo confirmar un pago ni una fecha. [siniestros:S-5521]\n\nFuentes: polizas:POL-1001; siniestros:S-5521"
@@ -160,11 +160,11 @@
         "modo": "ollama",
         "modelo": "qwen2.5:7b",
         "llm_llamadas": 1,
-        "llm_segundos": 3.473,
-        "total_segundos": 3.489,
-        "tokens_entrada": 398,
+        "llm_segundos": 3.573,
+        "total_segundos": 3.583,
+        "tokens_entrada": 598,
         "tokens_salida": 52,
-        "tokens_total": 450,
+        "tokens_total": 650,
         "tokens_medicion_completa": true
       },
       "respuesta": "La póliza POL-1002 (Auto Total) figura vigente, con vigencia del 2026-03-01 al 2027-02-28. [polizas:POL-1002] El producto contempla «Daño propio por choque, vuelco o despiste». [condicionados/vehicular.md, Artículo 1] Deducible registrado: S/ 500.00. [polizas:POL-1002] La cobertura está sujeta a vigencia, exclusiones y evaluación; no es una aprobación. [condicionados/vehicular.md, Artículo 5] Aviso: «El Asegurado debe avisar el siniestro dentro de las 72 horas siguientes a su ocurrencia. Este plazo reemplaza al plazo general de 7 días de las Condiciones Generales.». [condicionados/vehicular.md, Artículo 3] «En caso de choque con terceros o con daños a la propiedad pública, el conductor debe solicitar la intervención policial y el dosaje etílico en el lugar.». [condicionados/vehicular.md, Artículo 3] «Llevar el vehículo a un taller afiliado para la inspección.». «Presentar los documentos que solicite el evaluador.». [condicionados/vehicular.md, Artículo 6] Los datos disponibles no incluyen historial de primas para confirmar que los pagos estén al día.\n\nFuentes: polizas:POL-1002; condicionados/condiciones_generales.md, Artículo 3; condicionados/vehicular.md, Artículo 1; condicionados/condiciones_generales.md, Artículo 1; condicionados/vehicular.md, Artículo 5; condicionados/vehicular.md, Artículo 3; condicionados/vehicular.md, Artículo 6"
@@ -235,11 +235,11 @@
         "modo": "ollama",
         "modelo": "qwen2.5:7b",
         "llm_llamadas": 1,
-        "llm_segundos": 3.728,
-        "total_segundos": 3.733,
-        "tokens_entrada": 393,
+        "llm_segundos": 3.718,
+        "total_segundos": 3.722,
+        "tokens_entrada": 593,
         "tokens_salida": 61,
-        "tokens_total": 454,
+        "tokens_total": 654,
         "tokens_medicion_completa": true
       },
       "respuesta": "El siniestro S-5524 figura rechazado. Última actualización: 2026-09-04. [siniestros:S-5524] Motivo registrado: «Conductor en estado de ebriedad según dosaje etílico (0.9 g/l)». [siniestros:S-5524] Cláusula aplicable registrada Vehicular 5.2: «El conductor se encuentra en estado de ebriedad (dosaje etílico igual o mayor a 0.5 g/l) o bajo la influencia de drogas o estupefacientes, o se niega a realizar el dosaje.». [condicionados/vehicular.md, Artículo 5]\n\nFuentes: polizas:POL-1003; siniestros:S-5524; condicionados/vehicular.md, Artículo 5; condicionados/condiciones_generales.md, Artículo 1"
@@ -310,11 +310,11 @@
         "modo": "ollama",
         "modelo": "qwen2.5:7b",
         "llm_llamadas": 1,
-        "llm_segundos": 3.604,
-        "total_segundos": 3.612,
-        "tokens_entrada": 400,
-        "tokens_salida": 55,
-        "tokens_total": 455,
+        "llm_segundos": 3.6,
+        "total_segundos": 3.604,
+        "tokens_entrada": 600,
+        "tokens_salida": 54,
+        "tokens_total": 654,
         "tokens_medicion_completa": true
       },
       "respuesta": "La póliza POL-1005 (Salud Integral) figura vigente, con vigencia del 2026-08-01 al 2027-07-31. [polizas:POL-1005] Las cirugías programadas tienen 6 meses de carencia desde el inicio, hasta el 2027-02-01. [condicionados/salud.md, Artículo 4] La cirugía entre 2026-10-19 y 2026-10-25 queda dentro de la carencia y no está cubierta por esa prestación. [condicionados/salud.md, Artículo 4] La consulta describe cirugía programada; no estoy haciendo un diagnóstico médico.\n\nFuentes: polizas:POL-1005; condicionados/condiciones_generales.md, Artículo 3; condicionados/salud.md, Artículo 4; condicionados/condiciones_generales.md, Artículo 1"
@@ -383,11 +383,11 @@
         "modo": "ollama",
         "modelo": "qwen2.5:7b",
         "llm_llamadas": 1,
-        "llm_segundos": 3.449,
-        "total_segundos": 3.456,
-        "tokens_entrada": 395,
+        "llm_segundos": 3.518,
+        "total_segundos": 3.522,
+        "tokens_entrada": 595,
         "tokens_salida": 52,
-        "tokens_total": 447,
+        "tokens_total": 647,
         "tokens_medicion_completa": true
       },
       "respuesta": "La póliza POL-1004 (Auto Total) figura vencida, con vigencia del 2025-10-01 al 2026-09-30. [polizas:POL-1004] El evento relatado del 2026-10-14 al 2026-10-14 queda fuera de vigencia y no tiene cobertura por esta póliza. [condicionados/condiciones_generales.md, Artículo 3] No puedo ofrecerte un monto ni un plazo de indemnización.\n\nFuentes: polizas:POL-1004; condicionados/condiciones_generales.md, Artículo 3"
@@ -518,7 +518,7 @@
         "condicionados/condiciones_generales.md, Artículo 10",
         "condicionados/vida.md, Artículo 2",
         "condicionados/condiciones_generales.md, Artículo 1",
-        "tickets:T-C48FED4C6E4B",
+        "tickets:T-8AD3E21DC69D",
         "ENUNCIADO.pdf, regla de negocio 7 (sin asesoría indebida)",
         "ENUNCIADO.pdf, regla de negocio 5 (sin inventar)"
       ],
@@ -528,13 +528,13 @@
         "modelo": "qwen2.5:7b",
         "llm_llamadas": 0,
         "llm_segundos": 0,
-        "total_segundos": 0.004,
+        "total_segundos": 0.002,
         "tokens_entrada": 0,
         "tokens_salida": 0,
         "tokens_total": 0,
         "tokens_medicion_completa": true
       },
-      "respuesta": "No puedo brindarte asesoría financiera o de inversión. Debe atenderte un profesional autorizado para ese tema. Registré el ticket local T-C48FED4C6E4B, pendiente de atención; no implica contacto automático.\n\nFuentes: condicionados/condiciones_generales.md, Artículo 10; condicionados/vida.md, Artículo 2; condicionados/condiciones_generales.md, Artículo 1; tickets:T-C48FED4C6E4B; ENUNCIADO.pdf, regla de negocio 7 (sin asesoría indebida); ENUNCIADO.pdf, regla de negocio 5 (sin inventar)"
+      "respuesta": "No puedo brindarte asesoría financiera o de inversión. Debe atenderte un profesional autorizado para ese tema. Registré el ticket local T-8AD3E21DC69D, pendiente de atención; no implica contacto automático.\n\nFuentes: condicionados/condiciones_generales.md, Artículo 10; condicionados/vida.md, Artículo 2; condicionados/condiciones_generales.md, Artículo 1; tickets:T-8AD3E21DC69D; ENUNCIADO.pdf, regla de negocio 7 (sin asesoría indebida); ENUNCIADO.pdf, regla de negocio 5 (sin inventar)"
     },
     {
       "id": "CP-08",
@@ -612,11 +612,11 @@
         "modo": "ollama",
         "modelo": "qwen2.5:7b",
         "llm_llamadas": 1,
-        "llm_segundos": 3.745,
-        "total_segundos": 3.753,
-        "tokens_entrada": 418,
+        "llm_segundos": 3.781,
+        "total_segundos": 3.791,
+        "tokens_entrada": 618,
         "tokens_salida": 63,
-        "tokens_total": 481,
+        "tokens_total": 681,
         "tokens_medicion_completa": true
       },
       "respuesta": "Hay 4 siniestros de seguro vehicular rechazados cuya última actualización está en el trimestre consultado. Motivos agrupados por cláusula: Vehicular 5.2: 2 (Conductor en estado de ebriedad según dosaje etílico; Conductor en estado de ebriedad según dosaje etílico (0.9 g/l); registros S-5524, S-5540); Vehicular 5.3: 1 (Uso del vehículo como taxi no declarado en la póliza; registros S-5505); Condiciones Generales 6.3: 1 (Ocurrencia con póliza suspendida por falta de pago; registros S-5552). Supuesto: fecha_ultima_actualizacion se utiliza como aproximación a la fecha de rechazo. No existe fecha_rechazo ni historial de estados; la última actualización del expediente no garantiza que ese día se haya decidido el rechazo.\n\nFuentes: polizas (consulta SQL sobre registros autorizados); siniestros:S-5505; siniestros:S-5524; siniestros:S-5540; siniestros:S-5552; condicionados/vehicular.md, Artículo 5; condicionados/condiciones_generales.md, Artículo 1; condicionados/condiciones_generales.md, Artículo 6"
@@ -742,11 +742,11 @@
         "modo": "ollama",
         "modelo": "qwen2.5:7b",
         "llm_llamadas": 1,
-        "llm_segundos": 3.524,
-        "total_segundos": 3.529,
-        "tokens_entrada": 378,
-        "tokens_salida": 54,
-        "tokens_total": 432,
+        "llm_segundos": 3.475,
+        "total_segundos": 3.478,
+        "tokens_entrada": 578,
+        "tokens_salida": 52,
+        "tokens_total": 630,
         "tokens_medicion_completa": true
       },
       "respuesta": "Encontré estas pólizas accesibles: POL-1008 (vehicular, vigente), POL-1009 (salud, vencida), POL-1010 (salud, vigente). ¿Sobre qué seguro y qué evento necesitas consultar la cobertura?\n\nFuentes: polizas:POL-1008; polizas:POL-1009; polizas:POL-1010; ENUNCIADO.pdf, regla de negocio 5 (sin inventar)"
@@ -804,11 +804,11 @@
         "modo": "ollama",
         "modelo": "qwen2.5:7b",
         "llm_llamadas": 1,
-        "llm_segundos": 3.477,
-        "total_segundos": 3.48,
-        "tokens_entrada": 388,
-        "tokens_salida": 60,
-        "tokens_total": 448,
+        "llm_segundos": 3.327,
+        "total_segundos": 3.329,
+        "tokens_entrada": 588,
+        "tokens_salida": 59,
+        "tokens_total": 647,
         "tokens_medicion_completa": true
       },
       "respuesta": "No encontré el siniestro S-9999 entre los registros a los que tienes acceso. Verifica el código.\n\nFuentes: polizas (consulta SQL sobre registros autorizados); siniestros (consulta SQL sobre registros autorizados); ENUNCIADO.pdf, regla de negocio 5 (sin inventar)"
@@ -883,11 +883,11 @@
         "modo": "ollama",
         "modelo": "qwen2.5:7b",
         "llm_llamadas": 1,
-        "llm_segundos": 3.786,
-        "total_segundos": 3.788,
-        "tokens_entrada": 391,
+        "llm_segundos": 3.595,
+        "total_segundos": 3.597,
+        "tokens_entrada": 591,
         "tokens_salida": 60,
-        "tokens_total": 451,
+        "tokens_total": 651,
         "tokens_medicion_completa": true
       },
       "respuesta": "El siniestro S-5533 figura en evaluación. Última actualización: 2026-10-10. [siniestros:S-5533] No hay monto de indemnización aprobado registrado; no puedo confirmar un pago ni una fecha. [siniestros:S-5533]\n\nFuentes: polizas:POL-1011; siniestros:S-5533"

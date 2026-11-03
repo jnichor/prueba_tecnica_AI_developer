@@ -56,6 +56,169 @@ class ResolverTests(unittest.TestCase):
         self.assertNotIn("S-5521", answer)
         self.assertTrue(all("descripcion" not in args.get("sql", "") for name, args, _ in self.trace))
 
+    def test_own_history_accepts_exact_reported_phrases_and_variants(self):
+        messages = ("¿he tenido algun siniestro?", "Yo he tenido algun siniestro?",
+                    "¿Cuáles son mis siniestros?", "cuales son mis siniestros", "Quiero ver mi historial de siniestros")
+        for message in messages:
+            with self.subTest(message=message):
+                self.trace.clear()
+                answer = self.resolver.resolve({"intent": "historial_siniestros"}, message, self.session)
+                self.assertIn("Sí, encontré 1 siniestro registrado en tus pólizas", answer)
+                self.assertIn("S-5521", answer)
+                self.assertIn("2026-10-02", answer)
+                self.assertIn("en evaluación", answer)
+                self.assertNotIn("S-5524", answer)
+                sql = next(args for name, args, _ in self.trace if name == "consulta_datos")
+                self.assertEqual(sql["parametros"], ["C001"])
+                self.assertNotIn("descripcion", sql["sql"])
+                self.assertNotIn("motivo_rechazo", sql["sql"])
+
+    def test_own_history_corrects_legacy_wrong_intent_without_bypassing_privacy(self):
+        for intent in ("estado_siniestro", "consulta_tercero"):
+            with self.subTest(intent=intent):
+                answer = self.resolver.resolve({"intent": intent, "siniestro_id": None}, "Yo he tenido algun siniestro?", self.session)
+                self.assertIn("S-5521", answer)
+                self.assertNotIn("otra persona", answer)
+
+    def test_history_uses_each_session_and_zero_is_limited_to_available_data(self):
+        first = self.resolver.resolve({"intent": "historial_siniestros"}, "¿He tenido algún siniestro?", self.session)
+        empty = self.resolver.resolve({"intent": "historial_siniestros"}, "¿He tenido algún siniestro?", {"rol": "cliente", "usuario_id": "C002"})
+        other = self.resolver.resolve({"intent": "historial_siniestros"}, "¿He tenido algún siniestro?", {"rol": "cliente", "usuario_id": "C040"})
+        self.assertIn("S-5521", first)
+        self.assertEqual(empty, "No encontré siniestros registrados en tus pólizas en los datos disponibles.")
+        self.assertNotIn("nunca", empty)
+        self.assertNotIn("S-5521", other)
+        self.assertIn("Sí, encontré 2", other)
+
+    def test_identifying_own_policy_does_not_require_an_event(self):
+        for intent in ("consultar_polizas", "aclaracion"):
+            with self.subTest(intent=intent):
+                answer = self.resolver.resolve({"intent": intent}, "dime cual es mi poliza", self.session)
+                self.assertIn("POL-1001", answer)
+                self.assertIn("Auto Total", answer)
+                self.assertIn("2026-01-15", answer)
+                self.assertNotIn("evento", answer)
+                self.assertNotIn("cirugía", answer)
+
+    def test_policy_list_includes_all_own_policies_without_arbitrary_selection(self):
+        answer = self.resolver.resolve({"intent": "consultar_polizas"}, "¿Cuáles son mis pólizas?", {"rol": "cliente", "usuario_id": "C008"})
+        for identifier in ("POL-1008", "POL-1009", "POL-1010"):
+            self.assertIn(identifier, answer)
+        self.assertIn("vencida", answer)
+        self.assertNotIn("POL-1001:", answer)
+        foreign = self.resolver.resolve({"intent": "consultar_polizas", "poliza_id": "POL-1002"}, "Consultar POL-1002", self.session)
+        self.assertIn("No encontré", foreign)
+        self.assertNotIn("Auto Total", foreign)
+
+    def test_general_vehicle_coverage_lists_actual_product_without_requiring_event(self):
+        messages = ("deseo consultar sobre mi seguro vehicular, cual es su cobertura", "¿Qué cubre POL-1001?")
+        for message in messages:
+            with self.subTest(message=message):
+                answer = self.resolver.resolve({"intent": "cobertura"}, message, self.session)
+                for expected in ("Auto Total", "POL-1001", "Robo total del vehículo: Sí", "Robo parcial de accesorios: Sí", "Rotura de lunas: Sí (sin deducible)", "Incendio: Sí", "100,000", "10 días", "52,000.00", "600.00", "Artículo 1"):
+                    self.assertIn(expected, answer)
+                self.assertNotIn("Necesito el evento", answer)
+                self.assertNotIn("fecha exacta", answer)
+                self.assertNotIn("cirugía", answer)
+
+    def test_general_summary_uses_esencial_column_including_exclusions(self):
+        answer = self.resolver.resolve({"intent": "cobertura"}, "¿Cuál es la cobertura de mi seguro vehicular?", {"rol": "cliente", "usuario_id": "C003"})
+        for expected in ("Auto Esencial", "Robo parcial de accesorios: No", "Rotura de lunas: No", "Auto de reemplazo: No", "Hasta S/ 50,000"):
+            self.assertIn(expected, answer)
+        self.assertNotIn("Hasta S/ 100,000", answer)
+
+    def test_general_health_and_life_summaries_are_based_on_their_documents(self):
+        health = self.resolver.resolve({"intent": "cobertura"}, "¿Qué cubre mi seguro de salud?", {"rol": "cliente", "usuario_id": "C005"})
+        self.assertIn("Atención ambulatoria: 80%", health)
+        self.assertIn("Cirugías: 90%", health)
+        self.assertIn("máximo anual", health)
+        self.assertIn("después del deducible", health)
+        life = self.resolver.resolve({"intent": "cobertura"}, "¿Qué cubre mi seguro de vida?", {"rol": "cliente", "usuario_id": "C010"})
+        self.assertIn("Vida Ahorro Plus", life)
+        self.assertIn("invalidez total y permanente", life)
+        self.assertIn("no está garantizado", life)
+        self.assertNotIn("No acumula ahorro", life)
+        self.assertNotIn("te recomiendo", life)
+
+    def test_specific_event_and_ambiguous_amount_do_not_become_general_summary(self):
+        unknown = self.resolver.resolve({"intent": "cobertura"}, "Mi auto sufrió una inundación, ¿cuál es su cobertura vehicular?", self.session)
+        self.assertNotIn("Resumen general", unknown)
+        self.assertIn("evento concreto", unknown)
+        self.assertNotIn("cirugía", unknown)
+        ambiguous = self.resolver.resolve({"intent": "aclaracion"}, "¿Cuánto me cubre?", {"rol": "cliente", "usuario_id": "C008"})
+        self.assertIn("¿Sobre qué seguro", ambiguous)
+        self.assertNotIn("Resumen general", ambiguous)
+
+    def test_general_product_lookup_respects_header_order_and_missing_column(self):
+        path = self.root / "condicionados/vehicular.md"
+        text = path.read_text(encoding="utf-8")
+        lines = []
+        for line in text.splitlines():
+            if line.startswith("|"):
+                cells = line.split("|")
+                if len(cells) == 5:
+                    cells[2], cells[3] = cells[3], cells[2]
+                line = "|".join(cells)
+            lines.append(line)
+        path.write_text("\n".join(lines), encoding="utf-8")
+        self.reset()
+        answer = self.resolver.resolve({"intent": "cobertura"}, "¿Qué cubre mi seguro vehicular?", self.session)
+        self.assertIn("Robo parcial de accesorios: Sí", answer)
+        self.assertIn("Hasta S/ 100,000", answer)
+        path.write_text(path.read_text(encoding="utf-8").replace("Auto Total", "Producto distinto"), encoding="utf-8")
+        self.reset()
+        unavailable = self.resolver.resolve({"intent": "cobertura"}, "¿Qué cubre mi seguro vehicular?", self.session)
+        self.assertIn("ticket local", unavailable)
+        self.assertNotIn("Robo parcial de accesorios: Sí", unavailable)
+
+    def test_history_includes_multiple_own_expired_policies(self):
+        self.change("polizas", "poliza_id", "POL-1003", cliente_id="C001", estado="vencida", fecha_fin="2026-09-30")
+        answer = self.resolver.resolve({"intent": "historial_siniestros"}, "¿Cuáles son mis siniestros?", self.session)
+        self.assertIn("S-5521", answer)
+        self.assertIn("S-5524", answer)
+        self.assertIn("POL-1003", answer)
+        self.assertNotIn("0.9", answer)
+
+    def test_history_does_not_allow_third_party_requests_or_unscoped_advisor(self):
+        for message in ("¿Qué siniestros ha tenido mi esposo?", "¿Qué siniestros ha tenido C002?"):
+            with self.subTest(message=message):
+                self.trace.clear()
+                answer = self.resolver.resolve({"intent": "historial_siniestros"}, message, self.session)
+                self.assertNotIn("S-5521", answer)
+                self.assertFalse(any(name == "consulta_datos" for name, _, _ in self.trace))
+        self.trace.clear()
+        answer = self.resolver.resolve({"intent": "historial_siniestros"}, "¿He tenido algún siniestro?", {"rol": "asesor", "usuario_id": "ASE01"})
+        self.assertIn("Indica el cliente o el código de póliza", answer)
+        self.assertFalse(any(name == "consulta_datos" for name, _, _ in self.trace))
+
+    def test_truncated_history_is_explicitly_a_sample_not_a_total(self):
+        original = self.resolver.call
+
+        def truncated(name, args, session):
+            result = original(name, args, session)
+            if name == "consulta_datos":
+                result["truncado"] = True
+            return result
+
+        self.resolver.call = truncated
+        answer = self.resolver.resolve({"intent": "historial_siniestros"}, "¿He tenido algún siniestro?", self.session)
+        self.assertIn("muestra limitada", answer)
+        self.assertIn("no confirma el total", answer)
+        self.assertNotIn("Sí, encontré 1 siniestro registrado", answer)
+
+    def test_history_rejects_foreign_rows_before_rendering(self):
+        original = self.resolver.call
+
+        def foreign(name, args, session):
+            if name == "consulta_datos":
+                return {"filas": [{"siniestro_id": "S-5524", "cliente_id": "C003", "estado": "rechazado"}], "fuentes": []}
+            return original(name, args, session)
+
+        self.resolver.call = foreign
+        answer = self.resolver.resolve({"intent": "historial_siniestros"}, "¿He tenido algún siniestro?", self.session)
+        self.assertNotIn("S-5524", answer)
+        self.assertIn("ticket local", answer)
+
     def test_nonliteral_model_id_does_not_trigger_query(self):
         answer = self.resolver.resolve({"intent": "estado_siniestro", "siniestro_id": "S-5524"}, "Estado de mi siniestro", self.session)
         self.assertIn("código", answer)

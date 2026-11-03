@@ -11,7 +11,9 @@ from datetime import date, timedelta
 
 from .tools import normalize
 from .planning import (literal_ids, literal_quarters, literal_years,
-                       requests_third_party_data, supported_branches, supported_events)
+                       general_coverage_request, own_policy_request,
+                       requests_third_party_data, self_claim_history_request,
+                       supported_branches, supported_events)
 
 
 PRIVACY = "ENUNCIADO.pdf, reglas de negocio 2 y 3 (identidad y privacidad)"
@@ -104,7 +106,7 @@ class Resolver:
         planned = plan.get(name)
         if planned and (not isinstance(planned, str) or planned.upper() not in identifiers):
             return None
-        return planned.upper() if planned else next(iter(identifiers)) if len(identifiers) == 1 else None
+        return planned.upper() if planned else next(iter(identifiers))
 
     def resolve(self, plan, message, session):
         guarded = self.guard(message, session)
@@ -119,6 +121,20 @@ class Resolver:
             self.policy_sources = [PRIVACY]
             self._article("general", "5", session)
             return "No puedo modificar pólizas o siniestros, aprobar, rechazar ni cambiar montos. Este canal es de solo lectura."
+        if intent == "consultar_polizas" or (own_policy_request(message) and intent in {"aclaracion", "cobertura", "consulta_tercero"}):
+            return self._policies(plan, message, session)
+        own_history = self_claim_history_request(message)
+        if intent == "historial_siniestros" or (own_history and intent in {"estado_siniestro", "consulta_tercero"}):
+            if own_history and plan.get("siniestro_id") is not None:
+                self.policy_sources = [NO_INVENT]
+                return "Indica un único código de siniestro si buscas un expediente concreto; no utilizaré un identificador que no aparece en tu mensaje."
+            if session.get("rol") != "cliente":
+                self.policy_sources = [NO_INVENT]
+                return "Indica el cliente o el código de póliza cuyo historial deseas consultar; la sesión de asesor no identifica a un titular de seguro."
+            if not own_history:
+                self.policy_sources = [NO_INVENT]
+                return "Para consultar tu historial propio, indica que deseas ver tus siniestros. No seleccionaré datos de otra persona ni un expediente arbitrario."
+            return self._history(session)
         if intent == "consulta_tercero" and session.get("rol") == "cliente":
             self.policy_sources = [PRIVACY]
             self._article("general", "9", session)
@@ -134,6 +150,95 @@ class Resolver:
         if intent in {"cobertura", "aclaracion"}:
             return self._coverage(plan, message, session)
         return self._escalate("No puedo resolver esa solicitud dentro del alcance de consultas de pólizas y siniestros. No puedo confirmar información sin una consulta válida.", session, "Consulta fuera de alcance o interpretación no válida")
+
+    def _policies(self, plan, message, session):
+        identifier = self._literal_id(plan, "poliza_id", message, "POL")
+        if session.get("rol") != "cliente" and not identifier:
+            self.policy_sources = [NO_INVENT]
+            return "Indica un código de póliza; la sesión de asesor no identifica a un titular de seguro."
+        if plan.get("poliza_id") and not identifier or len(literal_ids(message, "POL")) > 1:
+            self.policy_sources = [NO_INVENT]
+            return "Indica un único código de póliza que aparezca completo en tu consulta."
+        if not own_policy_request(message) and not identifier:
+            self.policy_sources = [NO_INVENT]
+            return "Precisa si deseas consultar tus propias pólizas o indica un código de póliza."
+        branches = supported_branches(message)
+        sql = "SELECT poliza_id,cliente_id,ramo,producto,estado,fecha_inicio,fecha_fin FROM polizas WHERE "
+        parameters = []
+        if session["rol"] == "cliente":
+            sql += "cliente_id=?"
+            parameters.append(session["usuario_id"])
+        else:
+            sql += "poliza_id=?"
+            parameters.append(identifier)
+        if identifier and session["rol"] == "cliente":
+            sql += " AND poliza_id=?"
+            parameters.append(identifier)
+        if len(branches) == 1:
+            sql += " AND ramo=?"
+            parameters.append(next(iter(branches)))
+        result = self._sql(sql + " ORDER BY fecha_fin DESC,poliza_id", session, parameters)
+        if result.get("error") or result.get("truncado"):
+            return self._escalate("No pude obtener una lista completa y segura de las pólizas accesibles.", session)
+        rows = result.get("filas", [])
+        if any(session["rol"] == "cliente" and row.get("cliente_id") != session["usuario_id"] for row in rows):
+            self.policy_sources = [PRIVACY]
+            return "No puedo mostrar registros fuera de tu sesión."
+        if not rows:
+            self.policy_sources = [NO_INVENT]
+            return "No encontré pólizas con esos datos entre los registros a los que tienes acceso."
+        if identifier and any(row.get("poliza_id") != identifier for row in rows):
+            return self._escalate("Los datos devueltos no coinciden con la póliza solicitada.", session)
+        lines = [f"- {row['poliza_id']}: {row['producto']} ({row['ramo']}), estado {row['estado']}, "
+                 f"vigencia del {row['fecha_inicio']} al {row['fecha_fin']}. [polizas:{row['poliza_id']}]" for row in rows]
+        return "Encontré estas pólizas en los registros a los que tienes acceso:\n" + "\n".join(lines)
+
+    def _history(self, session):
+        """Incluye todas las pólizas propias, también vencidas o anuladas."""
+        result = self._sql(
+            "SELECT s.siniestro_id,s.poliza_id,p.cliente_id,p.ramo,"
+            "s.fecha_ocurrencia,s.estado,s.fecha_ultima_actualizacion "
+            "FROM siniestros s JOIN polizas p ON p.poliza_id=s.poliza_id "
+            "WHERE p.cliente_id=? ORDER BY s.fecha_ocurrencia DESC,s.siniestro_id",
+            session, [session["usuario_id"]])
+        if result.get("error"):
+            return self._escalate("No pude consultar tu historial de siniestros de forma segura.", session)
+        rows = result.get("filas", [])
+        statuses = {"registrado", "en_evaluacion", "aprobado", "pagado", "rechazado"}
+        identifiers = []
+        for row in rows:
+            if row.get("cliente_id") != session["usuario_id"] or row.get("estado") not in statuses or row.get("ramo") not in {"vehicular", "salud", "vida"}:
+                return self._escalate("El historial devuelto no pudo validarse como información de tu sesión.", session)
+            identifier, policy = row.get("siniestro_id"), row.get("poliza_id")
+            if not isinstance(identifier, str) or not re.fullmatch(r"S-\d+", identifier) or not isinstance(policy, str) or not re.fullmatch(r"POL-\d+", policy):
+                return self._escalate("El historial contiene identificadores incompletos o inconsistentes.", session)
+            try:
+                for key in ("fecha_ocurrencia", "fecha_ultima_actualizacion"):
+                    if date.fromisoformat(row[key]).isoformat() != row[key]:
+                        raise ValueError("Fecha no canónica")
+            except (KeyError, TypeError, ValueError):
+                return self._escalate("El historial contiene fechas incompletas o inconsistentes.", session)
+            identifiers.append(identifier)
+        if len(set(identifiers)) != len(identifiers):
+            return self._escalate("El historial contiene registros duplicados y no puedo confirmar un total.", session)
+        if not rows:
+            if result.get("truncado"):
+                return self._escalate("La consulta del historial alcanzó un límite y no puedo confirmar un total de registros.", session)
+            self.policy_sources = [NO_INVENT]
+            return "No encontré siniestros registrados en tus pólizas en los datos disponibles."
+        if result.get("truncado"):
+            header = f"Encontré siniestros registrados en tus pólizas. Esta es una muestra limitada de {len(rows)} registros; no confirma el total del historial:"
+        else:
+            noun = "siniestro registrado" if len(rows) == 1 else "siniestros registrados"
+            header = f"Sí, encontré {len(rows)} {noun} en tus pólizas:"
+        lines = []
+        for row in rows:
+            status = "en evaluación" if row["estado"] == "en_evaluacion" else row["estado"].replace("_", " ")
+            lines.append(f"- {row['siniestro_id']}, póliza {row['poliza_id']} ({row['ramo']}): "
+                         f"ocurrió el {row['fecha_ocurrencia']}; estado registrado: {status}; "
+                         f"última actualización: {row['fecha_ultima_actualizacion']}. "
+                         f"[siniestros:{row['siniestro_id']}] [polizas:{row['poliza_id']}]")
+        return header + "\n" + "\n".join(lines) + "\nPuedes indicar el código de un siniestro para consultar sus detalles."
 
     def _claim(self, identifier, session):
         result = self._sql("SELECT s.siniestro_id,s.poliza_id,p.cliente_id,p.ramo,s.estado,s.fecha_ultima_actualizacion,s.monto_reclamado_soles,s.monto_aprobado_soles,s.motivo_rechazo,s.clausula_referencia FROM siniestros s JOIN polizas p ON p.poliza_id=s.poliza_id WHERE s.siniestro_id=?", session, [identifier])
@@ -291,6 +396,10 @@ class Resolver:
             names = ", ".join(f"{row['poliza_id']} ({row['ramo']}, {row['estado']})" for row in rows)
             self.policy_sources = [NO_INVENT]
             return f"Encontré estas pólizas accesibles: {names}. ¿Sobre qué seguro y qué evento necesitas consultar la cobertura?"
+        event = self._event(message)
+        specific = re.search(r"\b(?:cirugi\w*|operacion\w*|maternidad|hospitaliza\w*|emergencia\w*|incendio\w*|lunas?|accesorio\w*|rotura\w*|fallec\w*|invalidez|sufr\w*|ocurr\w*|inund\w*|granizo|terremoto|lluvia|averia|dano\w*|danad\w*|volc\w*|despist\w*)\b", text)
+        general = event == "desconocido" and not specific and (
+            general_coverage_request(message) or bool(re.search(r"\b(?:cobertur\w*|cubr\w*|protege|incluye)\b", text)))
         try:
             interval = self._interval(message)
         except ValueError:
@@ -298,10 +407,19 @@ class Resolver:
             return "La fecha indicada no es válida. Escribe la fecha del evento en formato AAAA-MM-DD."
         matching = [row for row in rows if interval and row["fecha_inicio"] <= interval[0].isoformat() and interval[1].isoformat() <= row["fecha_fin"]]
         if not policy_id and len(rows) > 1:
-            if len(matching) != 1:
+            if general:
+                active = [row for row in rows if row["estado"] == "vigente" and row["fecha_inicio"] <= self.today.isoformat() <= row["fecha_fin"]]
+                if len(active) == 1:
+                    rows = active
+                else:
+                    self.policy_sources = [NO_INVENT]
+                    codes = ", ".join(f"{row['poliza_id']} ({row['producto']}, {row['estado']})" for row in rows)
+                    return f"Hay varias pólizas posibles: {codes}. Indica el código de póliza cuyo producto deseas conocer."
+            elif len(matching) != 1:
                 self.policy_sources = [NO_INVENT]
                 return "Hay varias pólizas posibles de ese ramo. Indica el código de póliza y la fecha del evento para precisar la cobertura."
-            rows = matching
+            else:
+                rows = matching
         policy = rows[0]
         try:
             start_date = date.fromisoformat(policy["fecha_inicio"])
@@ -313,6 +431,8 @@ class Resolver:
         branch = policy["ramo"]
         source = f"polizas:{policy['poliza_id']}"
         base = f"La póliza {policy['poliza_id']} ({policy['producto']}) figura {policy['estado']}, con vigencia del {policy['fecha_inicio']} al {policy['fecha_fin']}. [{source}]"
+        if general:
+            return self._coverage_summary(policy, base, session)
         validity, validity_source = self._article("general", "3", session)
         if not self._clause(validity, "3.1"):
             return self._escalate(base + " No pude recuperar la regla de vigencia aplicable.", session)
@@ -322,13 +442,67 @@ class Resolver:
             return base + f" El evento relatado del {interval[0].isoformat()} al {interval[1].isoformat()} queda fuera de vigencia y no tiene cobertura por esta póliza. [{validity_source}] No puedo ofrecerte un monto ni un plazo de indemnización."
         if interval and not matching:
             return base + " La fecha o intervalo cruza el límite de vigencia. Indica la fecha exacta del evento para revisarlo."
-        event = self._event(message)
         if branch == "salud" and event == "cirugia_programada":
             return self._surgery(policy, interval, base, session)
         if branch == "vehicular" and event in {"choque", "robo"}:
             return self._vehicle(policy, event, interval, message, base, session)
         self.policy_sources = [NO_INVENT]
-        return base + " Necesito el evento concreto y su fecha para explicar la cobertura aplicable. Si es una cirugía, indica si es programada o una emergencia; no puedo diagnosticar esa condición. La suma asegurada no equivale a una indemnización aprobada."
+        health_note = " Si es una cirugía, indica si es programada o una emergencia; no puedo diagnosticar esa condición." if branch == "salud" else ""
+        return base + " Necesito el evento concreto y su fecha para explicar la cobertura aplicable." + health_note + " La suma asegurada no equivale a una indemnización aprobada."
+
+    def _coverage_summary(self, policy, base, session):
+        branch, product = policy["ramo"], policy["producto"]
+        article, source = self._article(branch, "1", session)
+        if not article:
+            return self._escalate(base + " No pude recuperar las coberturas del producto.", session)
+        if branch in {"vehicular", "salud"}:
+            benefits = self._product_benefits(article, product)
+            if not benefits:
+                return self._escalate(base + " No pude verificar la columna del producto en su condicionado.", session)
+            answer = base + f"\nResumen general de {product}, según su condicionado:\n"
+            answer += "\n".join(f"- {label}: {value}. [{source}]" for label, value in benefits)
+            if branch == "salud":
+                note = self._clause(article, "1.1")
+                annual, annual_source = self._article("salud", "2", session)
+                maximum = self._clause(annual, "2.1")
+                if not note or not maximum:
+                    return self._escalate(base + " No pude verificar cómo se aplican los porcentajes o el límite anual de salud.", session)
+                answer += f"\n«{note}». [{source}] «{maximum}». [{annual_source}]"
+        elif branch == "vida":
+            clauses = re.findall(r"(?m)^(1\.\d+)\.\s+(.+)$", article)
+            number = next((number for number, line in clauses if clean(line).split(":", 1)[0].strip() == product), None)
+            description = self._clause(article, number) if number else None
+            if not description:
+                return self._escalate(base + " No pude verificar la descripción de ese producto de vida.", session)
+            answer = base + f"\nResumen general del producto: «{description}». [{source}]"
+            if "proteccion anterior" in normalize(description):
+                protection = re.search(r"\bPaga la suma asegurada[^\n]*?permanente\.", article)
+                saving, saving_source = self._article("vida", "2", session)
+                saving_rule = self._clause(saving, "2.1")
+                if not protection or not saving_rule:
+                    return self._escalate(base + " No pude verificar la protección compartida o las condiciones del ahorro.", session)
+                answer += f"\nLa protección referida es: «{clean(protection[0])}». [{source}] «{saving_rule}». [{saving_source}]"
+        else:
+            return self._escalate(base + " El ramo no dispone de un resumen verificado.", session)
+        for key, label in (("suma_asegurada_soles", "Suma asegurada registrada"), ("deducible_soles", "Deducible registrado")):
+            value = policy.get(key)
+            if isinstance(value, (int, float)) and value >= 0:
+                answer += f"\n{label}: S/ {value:,.2f}. [polizas:{policy['poliza_id']}]"
+        return answer + "\nEste resumen describe el producto; no confirma cobertura de un evento ni una indemnización aprobada."
+
+    @staticmethod
+    def _product_rows(article):
+        return [[clean(cell) for cell in line.strip().strip("|").split("|")]
+                for line in (article or "").splitlines() if line.lstrip().startswith("|")]
+
+    @staticmethod
+    def _product_benefits(article, product):
+        rows = Resolver._product_rows(article)
+        if not rows or rows[0].count(product) != 1 or product not in rows[0][1:]:
+            return None
+        index = rows[0].index(product)
+        return [(row[0], row[index]) for row in rows[1:]
+                if len(row) == len(rows[0]) and row[0] and not re.fullmatch(r"[\s:-]+", row[0]) and row[index]]
 
     def _surgery(self, policy, interval, base, session):
         article, source = self._article("salud", "4", session)
@@ -353,7 +527,7 @@ class Resolver:
 
     @staticmethod
     def _product_cell(article, product, coverage):
-        lines = [[clean(cell) for cell in line.strip().strip("|").split("|")] for line in (article or "").splitlines() if line.lstrip().startswith("|")]
+        lines = Resolver._product_rows(article)
         if not lines or product not in lines[0][1:]:
             return None
         index = lines[0].index(product)

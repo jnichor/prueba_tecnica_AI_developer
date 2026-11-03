@@ -81,6 +81,8 @@ def public_files(root):
         paths.extend(path.relative_to(root).as_posix() for path in sorted((root / directory).iterdir())
                      if path.is_file() and path.suffix in suffixes)
     paths.extend("entrega/" + name for name in DELIVERY_FILES)
+    if (root / "entrega/CONSULTAS_HISTORIAL.md").is_file():
+        paths.append("entrega/CONSULTAS_HISTORIAL.md")
     paths.append("tests/fixtures/respuestas_offline.json")
     paths.append("scripts/preparar_entrega.py")
     return sorted(set(paths))

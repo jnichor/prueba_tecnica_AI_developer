@@ -8,18 +8,18 @@ Un estado técnico `ok` no equivale a una respuesta correcta. Los hechos se eval
 
 | Caso | Clasificación | Modo / modelo | Tokens entrada / salida / total | Revisión |
 | --- | --- | --- | --- | --- |
-| CP-01 | cumple_comprobaciones | ollama / qwen2.5:7b | 388 / 60 / 448 | Cumple las comprobaciones acotadas. |
-| CP-02 | cumple_comprobaciones | ollama / qwen2.5:7b | 398 / 52 / 450 | Cumple las comprobaciones acotadas. |
-| CP-03 | cumple_comprobaciones | ollama / qwen2.5:7b | 393 / 61 / 454 | Cumple las comprobaciones acotadas. |
-| CP-04 | cumple_comprobaciones | ollama / qwen2.5:7b | 400 / 55 / 455 | Cumple las comprobaciones acotadas. |
-| CP-05 | cumple_comprobaciones | ollama / qwen2.5:7b | 395 / 52 / 447 | Cumple las comprobaciones acotadas. |
+| CP-01 | cumple_comprobaciones | ollama / qwen2.5:7b | 588 / 60 / 648 | Cumple las comprobaciones acotadas. |
+| CP-02 | cumple_comprobaciones | ollama / qwen2.5:7b | 598 / 52 / 650 | Cumple las comprobaciones acotadas. |
+| CP-03 | cumple_comprobaciones | ollama / qwen2.5:7b | 593 / 61 / 654 | Cumple las comprobaciones acotadas. |
+| CP-04 | cumple_comprobaciones | ollama / qwen2.5:7b | 600 / 54 / 654 | Cumple las comprobaciones acotadas. |
+| CP-05 | cumple_comprobaciones | ollama / qwen2.5:7b | 595 / 52 / 647 | Cumple las comprobaciones acotadas. |
 | CP-06 | cumple_comprobaciones | ollama / qwen2.5:7b | 0 / 0 / 0 | Cumple las comprobaciones acotadas. |
 | CP-07 | cumple_comprobaciones | ollama / qwen2.5:7b | 0 / 0 / 0 | Cumple las comprobaciones acotadas. |
-| CP-08 | cumple_comprobaciones | ollama / qwen2.5:7b | 418 / 63 / 481 | Cumple las comprobaciones acotadas. |
+| CP-08 | cumple_comprobaciones | ollama / qwen2.5:7b | 618 / 63 / 681 | Cumple las comprobaciones acotadas. |
 | CP-09 | cumple_comprobaciones | ollama / qwen2.5:7b | 0 / 0 / 0 | Cumple las comprobaciones acotadas. |
-| CP-10 | cumple_comprobaciones | ollama / qwen2.5:7b | 378 / 54 / 432 | Cumple las comprobaciones acotadas. |
-| CP-11 | cumple_comprobaciones | ollama / qwen2.5:7b | 388 / 60 / 448 | Cumple las comprobaciones acotadas. |
-| CP-12 | cumple_comprobaciones | ollama / qwen2.5:7b | 391 / 60 / 451 | Cumple las comprobaciones acotadas. |
+| CP-10 | cumple_comprobaciones | ollama / qwen2.5:7b | 578 / 52 / 630 | Cumple las comprobaciones acotadas. |
+| CP-11 | cumple_comprobaciones | ollama / qwen2.5:7b | 588 / 59 / 647 | Cumple las comprobaciones acotadas. |
+| CP-12 | cumple_comprobaciones | ollama / qwen2.5:7b | 591 / 60 / 651 | Cumple las comprobaciones acotadas. |
 
 
 ## Detalle de criterios
@@ -154,9 +154,9 @@ Clasificación: **cumple_comprobaciones**.
 
 **Respuesta evaluada:**
 
-No puedo brindarte asesoría financiera o de inversión. Debe atenderte un profesional autorizado para ese tema. Registré el ticket local T-C48FED4C6E4B, pendiente de atención; no implica contacto automático.
+No puedo brindarte asesoría financiera o de inversión. Debe atenderte un profesional autorizado para ese tema. Registré el ticket local T-8AD3E21DC69D, pendiente de atención; no implica contacto automático.
 
-Fuentes: condicionados/condiciones_generales.md, Artículo 10; condicionados/vida.md, Artículo 2; condicionados/condiciones_generales.md, Artículo 1; tickets:T-C48FED4C6E4B; ENUNCIADO.pdf, regla de negocio 7 (sin asesoría indebida); ENUNCIADO.pdf, regla de negocio 5 (sin inventar)
+Fuentes: condicionados/condiciones_generales.md, Artículo 10; condicionados/vida.md, Artículo 2; condicionados/condiciones_generales.md, Artículo 1; tickets:T-8AD3E21DC69D; ENUNCIADO.pdf, regla de negocio 7 (sin asesoría indebida); ENUNCIADO.pdf, regla de negocio 5 (sin inventar)
 
 ### CP-08
 

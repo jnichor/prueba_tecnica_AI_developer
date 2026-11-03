@@ -40,7 +40,7 @@ def main():
     print("Comprobaciones acotadas; no equivalen a certificación semántica universal.")
     print("Informe:", markdown)
     print("JSON:", data)
-    return 0 if report["todos_cumplen"] else 1
+    return int(not report["todos_cumplen"])
 
 
 if __name__ == "__main__":

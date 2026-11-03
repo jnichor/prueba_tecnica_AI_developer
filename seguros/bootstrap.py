@@ -185,9 +185,10 @@ def _download_archive(runtime, progress):
 def _safe_extract(archive, target):
     with zipfile.ZipFile(archive) as bundle:
         entries = bundle.infolist()
-        if sum(item.file_size for item in entries) > 8 * GIB:
+        unpacked_bytes = sum(item.file_size for item in entries)
+        if unpacked_bytes > 8 * GIB:
             raise SetupError("La distribución comprimida excede el tamaño permitido.")
-        _space(target, sum(item.file_size for item in entries) + GIB)
+        _space(target, unpacked_bytes + GIB)
         for item in entries:
             name = item.filename.replace("\\", "/")
             parts = PurePosixPath(name).parts
@@ -341,7 +342,7 @@ def ensure_ollama(modelo=None, base_url=None, root=None, prepare=True, progress=
     progress(f"Preparando IA local: {model}. La primera ejecución puede descargar Ollama y el modelo.")
     try:
         # Probe antes de crear archivos: un permiso de red denegado no es ausencia.
-        version = _probe(base)
+        _probe(base)
         with _setup_lock(runtime, progress):
             version = _probe(base)  # otro proceso pudo completar la preparación
             if not version:
