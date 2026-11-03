@@ -104,9 +104,17 @@ Lo importante es ver **qué debía responder, qué respondió y por qué está b
 
 ### Consumo de tokens
 
-Los tokens provienen de la API por consulta y reintento. Los controles sin llamadas registran cero; contadores ausentes se marcan desconocidos o incompletos. No se calcula costo monetario. El lote validado usó **3549 tokens de entrada + 517 de salida = 4066 en total**.
+Los **tokens** son fragmentos de texto que cuenta Ollama. Los de entrada incluyen tu pregunta y las instrucciones del programa; los de salida corresponden a la interpretación de Qwen, no a la respuesta final que construye el programa.
 
-Las **179 pruebas** verifican funciones y controles del código. Aquí se evalúan las **12 respuestas finales**, revisadas también con asistencia de Codex. El último lote cumplió las 12 comprobaciones, con nueve llamadas a Qwen y tres controles previos.
+La **API** es la conexión local entre el programa y Ollama en tu computadora. Consultar no envía los datos a un servicio externo ni requiere una clave de pago.
+
+Si la interpretación no cumple el formato o las validaciones, el programa vuelve a pedírsela a Qwen **una sola vez**. Tú no tienes que repetir la pregunta. Se suman los tokens de ambos intentos. Los controles que responden sin Qwen registran cero; si falta el contador, se indica «desconocido».
+
+No se calcula un costo monetario: Ollama local no cobra una tarifa por token.
+
+Como referencia, el lote de 12 casos incluido en la entrega usó **3549 tokens de entrada + 517 de salida = 4066 en total**.
+
+Las pruebas del programa verifican sus funciones y controles. La evaluación de la entrega revisa las **12 respuestas finales**, también con asistencia de Codex: las doce cumplieron sus comprobaciones. Nueve consultas llamaron a Qwen; tres se resolvieron antes mediante controles de privacidad, recomendaciones de inversión y cambios no permitidos.
 
 ### Archivos de referencia
 
