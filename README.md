@@ -16,7 +16,7 @@ python run_casos.py --evaluar
 
 El comando comprueba Ollama, reutiliza un servicio y modelo disponibles, y prepara lo que falte. En Windows x64 puede descargar la distribución portátil oficial verificada y el modelo en `.runtime/`, sin instalar un servicio del sistema ni paquetes Python.
 
-**Tiempo de inicio:** con el modelo disponible, el lote de prueba requirió 32.700 segundos de inferencia en el equipo utilizado. La primera preparación necesita Internet y aproximadamente 6.3 GB de descarga, más espacio de extracción; puede superar cinco minutos según la red y el equipo. No se presenta esa descarga como una instalación inferior a cinco minutos.
+**Tiempo de inicio:** con el modelo disponible, el lote de prueba requirió 32,7 segundos de inferencia en el equipo utilizado. La primera preparación necesita Internet y aproximadamente 6.3 GB de descarga, más espacio de extracción; puede superar cinco minutos según la red y el equipo. No se presenta esa descarga como una instalación inferior a cinco minutos.
 
 Para preparar el entorno sin ejecutar los casos:
 
@@ -25,34 +25,6 @@ python run_casos.py --solo-preparar
 ~~~
 
 En Linux o macOS se reutiliza un servicio Ollama local ya iniciado; no se instala automáticamente el runtime. La configuración opcional está en [.env.example](.env.example). `--modelo` prevalece sobre `OLLAMA_MODEL`; `AGENT_MODE` y `OLLAMA_BASE_URL` permiten configurar el modo y el servicio local.
-
-## Verificación rápida sin IA
-
-**Sin IA** significa que el programa usa reglas que escribimos, en lugar de pedir a Qwen que interprete la pregunta.
-
-Por ejemplo, el cliente `C001` pregunta: **«¿En qué estado está mi siniestro S-5521?»**
-
-1. Una regla reconoce que pide el estado de un siniestro y extrae el código `S-5521`.
-2. El programa consulta los CSV mediante SQL y comprueba que ese siniestro pertenece a `C001`.
-3. Lee el estado y la fecha registrados y los coloca en una respuesta con una estructura ya escrita.
-
-**Ejemplo abreviado de la respuesta real**; se omiten las referencias repetidas:
-
-> El siniestro S-5521 figura en evaluación. Última actualización: 2026-10-09. No hay monto de indemnización aprobado registrado; no puedo confirmar un pago ni una fecha.
->
-> Fuente: `siniestros:S-5521`.
-
-No hay una respuesta especial programada para `S-5521`: la misma regla sirve para cualquier código de siniestro que el usuario tenga permiso de consultar.
-
-Para ejecutar los 12 casos con esas reglas:
-
-~~~powershell
-python run_casos.py --modo offline --evaluar
-~~~
-
-`--evaluar` contrasta las respuestas con las comprobaciones esperadas y guarda los resultados en `salidas/`.
-
-Este modo prueba el código, los datos y los permisos, sin descargar modelos ni acceder a la red. No evalúa la interpretación de Qwen: en el modo con IA, Qwen elige primero la intención y después se usa la misma resolución con datos y reglas.
 
 ## Consultas y consola
 
@@ -68,29 +40,80 @@ Consola interactiva:
 python consultar.py --rol cliente --usuario C001 --interactivo
 ~~~
 
-Escribe `salir` o `exit` para terminar. La sesión conserva su identidad, pero las consultas son independientes: no hay memoria de conversación. Agrega `--modo offline` para usar reglas sin IA.
+Escribe `salir` o `exit` para terminar. La sesión conserva su identidad, pero las consultas son independientes: no hay memoria de conversación.
 
 Los argumentos de rol y usuario **simulan una sesión ya autenticada**. En producción los proporcionaría el servidor; conocer un DNI o escribir otro cargo no concede permisos.
 
 ## Evaluación y consumo
 
-Ejecutar y evaluar los 12 casos:
+Ejecuta el flujo normal completo con un comando:
 
 ~~~powershell
 python run_casos.py --evaluar
 ~~~
 
-Evaluar el lote entregado sin nuevas inferencias:
+El programa:
+
+1. Prepara Ollama y lee las 12 consultas, roles e identificadores de `casos_prueba/casos_prueba.json`.
+2. En nueve casos, Qwen interpreta la intención; en tres, actúan controles programados de privacidad, inversión o cambios no permitidos.
+3. Consulta CSV y artículos respetando los permisos de sesión, responde con fuentes y registra herramientas, tokens y tiempos.
+4. Evalúa las respuestas guardadas y genera informes Markdown y JSON.
+
+**Qwen no califica las respuestas.** El evaluador aplica reglas programadas y contrasta hechos y evidencias con los CSV y condicionados. Detecta contradicciones, promesas indebidas y fuentes sin respaldo.
+
+**Ejemplo: cómo se revisa S-5521.** Se comprueba que la respuesta diga «en evaluación», indique la actualización del 2026-10-09 y cite el registro `siniestros:S-5521` recuperado por la herramienta. Decir «pagado» incumple la comprobación, aunque incluya una cita válida.
+
+También se revisa que:
+
+- S-5524 se explique por ebriedad y la cláusula Vehicular 5.2, no por un aviso tardío inventado.
+- La póliza POL-1004, vencida el 30 de septiembre, no dé lugar a promesas de pago; la cirugía programada respete seis meses de carencia.
+- No se revelen seguros del esposo ni se aprueben siniestros por afirmar ser supervisor.
+- El agregado dé cuatro rechazos y declare última actualización como aproximación, porque no existe fecha de rechazo.
+
+La versión anterior inventó un plazo de «7 a 14 días» y un motivo de rechazo. Sus fallos se conservaron; la validación actual usa otra ejecución.
+
+### Leer el informe
+
+Los archivos se generan en `salidas_ollama_corregido/`:
+
+| Archivo | Qué consultar |
+| --- | --- |
+| `respuestas.json` | Las 12 respuestas, fuentes, herramientas y métricas |
+| `interactions.jsonl` | Auditoría: consulta, sesión y respuesta |
+| `llm_calls.jsonl` | Llamadas y contadores API |
+| `evaluacion_automatica.md` | Resumen por caso y detalle de cada criterio |
+| `evaluacion_automatica.json` | Los mismos resultados para procesarlos con código |
+
+Las clasificaciones del informe significan:
+
+| Clasificación | Lectura |
+| --- | --- |
+| `cumple_comprobaciones` | Pasó las comprobaciones acotadas |
+| `parcial` | Faltan hechos o evidencias requeridos |
+| `incorrecto` | Hay una contradicción o incumplimiento material |
+| `error_protocolo` | La consulta terminó con error de ejecución |
+
+El estado técnico `ok` **no significa** que una respuesta sea correcta. `evaluar.py` devuelve 0 si todos cumplen, 1 si hay parciales o fallos y 2 si la entrada es inválida. Los informes no certifican seguridad universal.
+
+### Revisar respuestas ya guardadas
+
+Para reevaluar tu último lote real:
+
+~~~powershell
+python evaluar.py --entrada salidas_ollama_corregido/respuestas.json
+~~~
+
+Para revisar la evidencia incluida en el repositorio:
 
 ~~~powershell
 python evaluar.py --entrada entrega/respuestas.json
 ~~~
 
-El evaluador genera `evaluacion_automatica.md` y `evaluacion_automatica.json` junto a la entrada. Puedes elegir otros destinos con `--informe` y `--salida-json`. Devuelve 0 si todos cumplen, 1 si hay parciales o fallos y 2 si la entrada es inválida.
+Ambos comandos leen respuestas existentes: no generan otras, no llaman a Qwen ni descargan modelos. Guardan el informe junto a la entrada; `--informe` y `--salida-json` permiten elegir otros destinos.
 
-Cada nueva respuesta y log registra tokens de entrada, salida y total, llamadas y latencia. Se suman todos los intentos de una consulta, sin acumular consultas anteriores. Los controles sin IA registran cero; si faltan contadores, el consumo se marca incompleto o desconocido. No se calcula un costo monetario.
+Los tokens provienen de la API por consulta y reintento. Los controles sin llamadas registran cero; contadores ausentes se marcan desconocidos o incompletos. No se calcula costo monetario. El lote validado usó **3549 tokens de entrada + 517 de salida = 4066 en total**.
 
-El lote validado consumió **3,549 tokens de entrada y 517 de salida: 4,066 en total**.
+Las **179 pruebas** verifican funciones y controles del código. Aquí se evalúan las **12 respuestas finales**, revisadas también con asistencia de Codex. El último lote cumplió las 12 comprobaciones, con nueve llamadas a Qwen y tres controles previos.
 
 ## Entrega verificable
 
@@ -106,7 +129,7 @@ El lote validado consumió **3,549 tokens de entrada y 517 de salida: 4,066 en t
 | [entrega/VERIFICACION.md](entrega/VERIFICACION.md) | Evidencia del lote y matriz de las ocho reglas |
 | [entrega/fuentes_sha256.json](entrega/fuentes_sha256.json) | Huellas para comprobar los archivos de evidencia |
 
-Las nuevas ejecuciones con IA escriben en `salidas_ollama_corregido/`; el modo offline usa `salidas/`. Esas carpetas de trabajo no forman parte de la entrega publicada. Los artefactos seleccionados están en `entrega/`.
+Las nuevas ejecuciones escriben en `salidas_ollama_corregido/`. Esas carpetas de trabajo no forman parte de la entrega publicada. Los artefactos seleccionados están en `entrega/`.
 
 La revisión de contenido se realizó **con asistencia de Codex**, contrastando los CSV y artículos del paquete. No fue una evaluación humana ciega. Coincidió con las comprobaciones automáticas existentes: 12 casos correctos. Esto acredita los casos y controles verificados, no seguridad universal.
 
