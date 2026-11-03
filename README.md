@@ -6,7 +6,7 @@ La validación del 3 de noviembre de 2026 documenta 12 casos correctos con `qwen
 
 ## Inicio rápido con IA
 
-Requisitos: **Python 3.10 o superior** y Windows x64 para la preparación automática. Git es necesario si clonas el repositorio:
+Requisitos: **Python 3.10 o superior**, **Git** y **Windows x64** para la preparación automática.
 
 ~~~powershell
 git clone https://github.com/jnichor/prueba_tecnica_AI_developer.git
@@ -14,9 +14,12 @@ cd prueba_tecnica_AI_developer
 python run_casos.py --evaluar
 ~~~
 
-El comando comprueba Ollama, reutiliza un servicio y modelo disponibles, y prepara lo que falte. En Windows x64 puede descargar la distribución portátil oficial verificada y el modelo en `.runtime/`, sin instalar un servicio del sistema ni paquetes Python.
+El último comando prepara Ollama y el modelo, ejecuta los **12 casos** y guarda las respuestas y la evaluación en `salidas_ollama_corregido/`. No necesitas instalar paquetes Python ni configurar una clave API. La IA se ejecuta en tu computadora.
 
-**Tiempo de inicio:** con el modelo disponible, el último lote de 12 casos requirió 32,419 segundos de inferencia en el equipo utilizado. La primera preparación necesita Internet y aproximadamente 6.3 GB de descarga, más espacio de extracción; puede superar cinco minutos según la red y el equipo. No se presenta esa descarga como una instalación inferior a cinco minutos.
+**Primera vez:** necesita Internet y descarga varios GB; puede superar cinco minutos según la conexión y el equipo. **Después:** reutiliza lo instalado. Desde la carpeta del proyecto, solo ejecuta `python run_casos.py --evaluar`.
+
+<details>
+<summary>Preparación y configuración opcional</summary>
 
 Para preparar el entorno sin ejecutar los casos:
 
@@ -24,7 +27,13 @@ Para preparar el entorno sin ejecutar los casos:
 python run_casos.py --solo-preparar
 ~~~
 
-En Linux o macOS se reutiliza un servicio Ollama local ya iniciado; no se instala automáticamente el runtime. La configuración opcional está en [.env.example](.env.example). `--modelo` prevalece sobre `OLLAMA_MODEL`; `AGENT_MODE` y `OLLAMA_BASE_URL` permiten configurar el modo y el servicio local.
+En Windows x64 se usa una distribución portátil oficial verificada y se guarda con el modelo en `.runtime/`, sin instalar un servicio del sistema. La primera descarga es de aproximadamente 6.3 GB y requiere espacio adicional para extraerla.
+
+En Linux o macOS debes iniciar un servicio Ollama local; el programa lo reutiliza, pero no instala el runtime automáticamente.
+
+La configuración opcional está en [.env.example](.env.example). `--modelo` prevalece sobre `OLLAMA_MODEL`; `AGENT_MODE` y `OLLAMA_BASE_URL` permiten configurar el modo y el servicio local.
+
+</details>
 
 ## Consultas y consola
 
