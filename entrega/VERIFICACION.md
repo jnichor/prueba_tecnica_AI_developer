@@ -28,4 +28,6 @@ Revisión de contenido con asistencia de Codex contra los CSV, los artículos y 
 
 La autenticación de la consola es simulada, los tickets no notifican servicios externos y el dominio implementado es acotado. CP-08 usa última actualización como aproximación declarada, porque no existe fecha de rechazo ni historial de estados. El asistente no decide indemnizaciones ni proporciona asesoría médica, legal o de inversión.
 
+La preparación de una instalación nueva se comprobó con simulaciones; la prueba real se hizo en la misma computadora y falta validarla en otra.
+
 Los SHA-256 de los archivos fuente y de esta selección están en [fuentes_sha256.json](fuentes_sha256.json). Los originales permanecen locales y no se modifican al preparar esta entrega.

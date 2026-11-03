@@ -165,25 +165,13 @@ Las nuevas ejecuciones escriben en `salidas_ollama_corregido/`. Esas carpetas de
 
 La revisión de contenido se realizó **con asistencia de Codex**, contrastando los CSV y artículos del paquete. No fue una evaluación humana ciega. Coincidió con las comprobaciones automáticas existentes: 12 casos correctos. Esto acredita los casos y controles verificados, no seguridad universal.
 
-## Pruebas y límites
+## Pruebas del código
 
-### Qué comprueban las pruebas
+La evaluación anterior revisa las respuestas de los 12 casos. Este comando comprueba que el código respete los permisos y las reglas al hacer cambios.
 
 ~~~powershell
 python -m unittest discover -s tests
 ~~~
-
-Estas pruebas comprueban los permisos, el bloqueo de cambios, las reglas y las fuentes, entre otros comportamientos del programa. No equivalen a hacer todas esas consultas a Qwen ni garantizan que se entienda cualquier frase.
-
-La preparación de una instalación nueva se probó con archivos y servicios simulados. La prueba real usó el modelo disponible en la misma computadora; no se validó otra computadora física.
-
-### Hasta dónde llega esta demostración
-
-- **Fecha fija:** las consultas usan el 15 de octubre de 2026 como fecha del ejercicio.
-- **Rechazos por trimestre:** se usa la última actualización del registro porque los datos no incluyen la fecha de rechazo. Es una aproximación y puede no coincidir con el día de la decisión.
-- **Datos incompletos:** no hay historial de pagos de primas ni fecha de anulación. Si falta información, se pide una aclaración o revisión humana; no se inventa.
-- **Atención pendiente:** un ticket se guarda como archivo local; no envía un aviso a un asesor.
-- **Acceso de prueba:** la consola permite elegir un usuario. Antes de atender clientes reales, hacen falta una verificación de identidad, protección de los registros guardados y atención de varios usuarios.
 
 ## Uso de asistentes de IA
 
