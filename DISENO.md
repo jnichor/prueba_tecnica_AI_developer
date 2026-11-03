@@ -49,7 +49,7 @@ La IA entiende qué se pregunta; el programa comprueba los datos y redacta la re
 
 **Preparación:** distribución portátil oficial fijada, verificación SHA-256 y reutilización de servicio y modelo. Windows x64 permite instalación automática; otros sistemas necesitan un servicio local existente. El primer uso requiere Internet y varios GB, y puede superar cinco minutos.
 
-**Evaluación:** reglas acotadas y revisión de contenido asistida por Codex contra fuentes. Los tokens provienen de la API por consulta; contadores ausentes permanecen desconocidos.
+**Evaluación:** elegimos el código como criterio principal porque compara hechos con los CSV y condicionados mediante comprobaciones explícitas, reproducibles y verificables. Qwen se probó como alternativa complementaria, sin elegirlo como criterio de aprobación: en 12 casos pidió revisar dos respuestas respaldadas (derivación financiera y aclaración de cobertura). Acertó ocho ejemplos de calibración, pero sus juicios dependen de las instrucciones y no garantizan concordancia en otras consultas. No requiere entrenar de nuevo el modelo; sí añade tiempo y tokens. Aprobar las reglas tampoco garantiza seguridad universal.
 
 ## 5. Supuestos
 
