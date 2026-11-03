@@ -68,8 +68,6 @@ También se revisa que:
 - No se revelen seguros del esposo ni se aprueben siniestros por afirmar ser supervisor.
 - El agregado dé cuatro rechazos y declare última actualización como aproximación, porque no existe fecha de rechazo.
 
-La versión anterior inventó un plazo de «7 a 14 días» y un motivo de rechazo. Sus fallos se conservaron; la validación actual usa otra ejecución.
-
 ### Ejemplo: cómo se evalúa una respuesta
 
 Este ejemplo se centra sólo en el **estado de S-5521**: se compara el dato real con un fragmento de la respuesta y se explica si coinciden.
@@ -124,8 +122,6 @@ La revisión de contenido se realizó **con asistencia de Codex**, contrastando 
 `planning.py` interpreta la intención y entidades en un esquema de siete campos. El modelo recibe la consulta y el contexto mínimo de sesión; no recibe expedientes ni condicionados, no genera SQL y no redacta la respuesta final.
 
 `resolver.py` aplica las reglas, consulta SQL parametrizado, recupera artículos y construye la respuesta con evidencia. `tools.py` valida identidad, restringe las filas accesibles y mantiene SQL de solo lectura. Las otras herramientas buscan condiciones y registran tickets locales.
-
-En una versión anterior, la generación libre inventó un motivo de rechazo y un plazo de pago. La corrección separó interpretación, reglas y construcción de respuestas. La validación actual corresponde a una nueva ejecución real; no se reetiquetaron los resultados anteriores.
 
 ## Pruebas y límites
 
