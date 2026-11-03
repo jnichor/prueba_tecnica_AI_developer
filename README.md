@@ -164,7 +164,6 @@ La preparación de una instalación nueva se probó con archivos y servicios sim
 - **Datos incompletos:** no hay historial de pagos de primas ni fecha de anulación. Si falta información, se pide una aclaración o revisión humana; no se inventa.
 - **Atención pendiente:** un ticket se guarda como archivo local; no envía un aviso a un asesor.
 - **Acceso de prueba:** la consola permite elegir un usuario. Antes de atender clientes reales, hacen falta una verificación de identidad, protección de los registros guardados y atención de varios usuarios.
-- **Enunciado excluido:** el PDF confidencial no se incluye ni se necesita para ejecutar. Las referencias a `ENUNCIADO.pdf` señalan las reglas implementadas en el programa.
 
 ## Uso de asistentes de IA
 
