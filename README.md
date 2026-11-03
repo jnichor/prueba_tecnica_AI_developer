@@ -61,8 +61,6 @@ El programa:
 
 **Qwen no califica las respuestas.** El evaluador aplica reglas programadas y contrasta hechos y evidencias con los CSV y condicionados. Detecta contradicciones, promesas indebidas y fuentes sin respaldo.
 
-**Ejemplo: cómo se revisa S-5521.** Se comprueba que la respuesta diga «en evaluación», indique la actualización del 2026-10-09 y cite el registro `siniestros:S-5521` recuperado por la herramienta. Decir «pagado» incumple la comprobación, aunque incluya una cita válida.
-
 También se revisa que:
 
 - S-5524 se explique por ebriedad y la cláusula Vehicular 5.2, no por un aviso tardío inventado.
@@ -72,28 +70,21 @@ También se revisa que:
 
 La versión anterior inventó un plazo de «7 a 14 días» y un motivo de rechazo. Sus fallos se conservaron; la validación actual usa otra ejecución.
 
-### Leer el informe
+### Ejemplo: cómo se evalúa una respuesta
 
-Los archivos se generan en `salidas_ollama_corregido/`:
+Este ejemplo se centra sólo en el **estado de S-5521**: se compara el dato real con un fragmento de la respuesta y se explica si coinciden.
 
-| Archivo | Qué consultar |
+| Qué se compara | Resultado |
 | --- | --- |
-| `respuestas.json` | Las 12 respuestas, fuentes, herramientas y métricas |
-| `interactions.jsonl` | Auditoría: consulta, sesión y respuesta |
-| `llm_calls.jsonl` | Llamadas y contadores API |
-| `evaluacion_automatica.md` | Resumen por caso y detalle de cada criterio |
-| `evaluacion_automatica.json` | Los mismos resultados para procesarlos con código |
+| Dato real de S-5521 | En evaluación |
+| Respuesta del agente (fragmento abreviado) | «El siniestro S-5521 figura en evaluación» |
+| Evaluación del estado | El estado coincide con el registro |
 
-Las clasificaciones del informe significan:
+Para dar el caso por correcto, también se revisan la fecha, las fuentes y los demás criterios del caso.
 
-| Clasificación | Lectura |
-| --- | --- |
-| `cumple_comprobaciones` | Pasó las comprobaciones acotadas |
-| `parcial` | Faltan hechos o evidencias requeridos |
-| `incorrecto` | Hay una contradicción o incumplimiento material |
-| `error_protocolo` | La consulta terminó con error de ejecución |
+**Ejemplo hipotético incorrecto — no es la respuesta actual:** si dijera «Ya fue pagado», se marcaría como incorrecto porque contradice el expediente.
 
-El estado técnico `ok` **no significa** que una respuesta sea correcta. `evaluar.py` devuelve 0 si todos cumplen, 1 si hay parciales o fallos y 2 si la entrada es inválida. Los informes no certifican seguridad universal.
+Lo importante es ver **qué debía responder, qué respondió y por qué está bien o mal**.
 
 ### Revisar respuestas ya guardadas
 
@@ -114,6 +105,15 @@ Ambos comandos leen respuestas existentes: no generan otras, no llaman a Qwen ni
 Los tokens provienen de la API por consulta y reintento. Los controles sin llamadas registran cero; contadores ausentes se marcan desconocidos o incompletos. No se calcula costo monetario. El lote validado usó **3549 tokens de entrada + 517 de salida = 4066 en total**.
 
 Las **179 pruebas** verifican funciones y controles del código. Aquí se evalúan las **12 respuestas finales**, revisadas también con asistencia de Codex. El último lote cumplió las 12 comprobaciones, con nueve llamadas a Qwen y tres controles previos.
+
+### Archivos de referencia
+
+Dentro de `salidas_ollama_corregido/`:
+
+- `respuestas.json`: las respuestas reales, sus fuentes y métricas.
+- `evaluacion_automatica.md`: comparación por caso y detalle de criterios.
+- `evaluacion_automatica.json`: los resultados para automatizar su lectura.
+- `interactions.jsonl` y `llm_calls.jsonl`: registros de consultas y llamadas al modelo.
 
 ## Entrega verificable
 
