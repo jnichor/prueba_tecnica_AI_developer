@@ -28,13 +28,31 @@ En Linux o macOS se reutiliza un servicio Ollama local ya iniciado; no se instal
 
 ## Verificación rápida sin IA
 
-Para comprobar que Python puede ejecutar el flujo y las reglas sin descargar modelos:
+**Sin IA** significa que el programa usa reglas que escribimos, en lugar de pedir a Qwen que interprete la pregunta.
+
+Por ejemplo, el cliente `C001` pregunta: **«¿En qué estado está mi siniestro S-5521?»**
+
+1. Una regla reconoce que pide el estado de un siniestro y extrae el código `S-5521`.
+2. El programa consulta los CSV mediante SQL y comprueba que ese siniestro pertenece a `C001`.
+3. Lee el estado y la fecha registrados y los coloca en una respuesta con una estructura ya escrita.
+
+**Ejemplo abreviado de la respuesta real**; se omiten las referencias repetidas:
+
+> El siniestro S-5521 figura en evaluación. Última actualización: 2026-10-09. No hay monto de indemnización aprobado registrado; no puedo confirmar un pago ni una fecha.
+>
+> Fuente: `siniestros:S-5521`.
+
+No hay una respuesta especial programada para `S-5521`: la misma regla sirve para cualquier código de siniestro que el usuario tenga permiso de consultar.
+
+Para ejecutar los 12 casos con esas reglas:
 
 ~~~powershell
 python run_casos.py --modo offline --evaluar
 ~~~
 
-Esta ruta sirve como comprobación rápida de instalación y no reemplaza la validación con IA. El modo offline es explícito y no prepara servicios ni accede a la red.
+`--evaluar` contrasta las respuestas con las comprobaciones esperadas y guarda los resultados en `salidas/`.
+
+Este modo prueba el código, los datos y los permisos, sin descargar modelos ni acceder a la red. No evalúa la interpretación de Qwen: en el modo con IA, Qwen elige primero la intención y después se usa la misma resolución con datos y reglas.
 
 ## Consultas y consola
 
