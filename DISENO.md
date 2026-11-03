@@ -19,15 +19,15 @@ Estos tres casos también recibieron una respuesta, con cero llamadas al modelo.
 
 ## 2. Arquitectura
 
-~~~text
-Consulta + sesión → Planner → plan validado → Resolver
-                                              ↓
-                              Tools → SQL / artículos / tickets
-                                              ↓
-                              respuesta + fuentes + auditoría
-~~~
+Por ejemplo, el cliente C001 pregunta: **«¿En qué estado está mi siniestro S-5521?»**
 
-El plan contiene siete campos: intención, siniestro, póliza, ramo, evento, trimestre y año. Las entidades deben estar respaldadas por el mensaje. El modelo no recibe expedientes ni artículos, no genera SQL ni redacta respuestas. El resolutor aplica reglas y consultas parametrizadas. La sesión permanece independiente del texto.
+1. El programa recibe la pregunta y la identidad C001 desde la sesión. No toma la identidad de lo que diga el mensaje.
+2. Qwen identifica que se quiere consultar un estado y reconoce el código S-5521.
+3. El programa comprueba que ese código aparece en la pregunta y limita la búsqueda a los datos autorizados para la sesión.
+4. Consulta los registros de siniestros y pólizas. En este ejemplo, S-5521 pertenece a C001 y figura **en evaluación**.
+5. Construye la respuesta con ese estado y la fuente `siniestros:S-5521`. Guarda la consulta, el usuario, las herramientas utilizadas y la respuesta para poder revisar lo ocurrido.
+
+La IA entiende qué se pregunta; el programa comprueba los datos y redacta la respuesta con fuentes. Los controles de privacidad, cambios no permitidos y asesoría pueden responder antes de consultar a Qwen.
 
 ## 3. Herramientas del agente
 
