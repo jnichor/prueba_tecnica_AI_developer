@@ -7,6 +7,16 @@
 
 Asistente local en Python que recibe una consulta y una sesión confiable. Un modelo interpreta intención y entidades; el código consulta datos y condiciones y construye respuestas con fuentes. Incluye preparación automática de Ollama, consola, evaluación y consumo. El último lote resolvió 12 casos con nueve llamadas reales y tres controles previos.
 
+**En nueve casos**, Qwen interpretó qué pedía el usuario; después, el código consultó los datos y las condiciones y construyó la respuesta con sus fuentes.
+
+**En tres casos**, reglas escritas en el programa respondieron antes de consultar a Qwen:
+
+- Pedir los seguros del esposo: proteger sus datos y no revelar información ajena.
+- Pedir una recomendación de inversión: registrar un ticket local para que lo atienda un asesor.
+- Ordenar aprobar un siniestro alegando ser supervisor: negar el cambio porque el canal es de solo lectura.
+
+Estos tres casos también recibieron una respuesta, con cero llamadas al modelo.
+
 ## 2. Arquitectura
 
 ~~~text
