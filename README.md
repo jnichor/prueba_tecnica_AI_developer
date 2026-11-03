@@ -14,6 +14,9 @@ cd prueba_tecnica_AI_developer
 python run_casos.py --evaluar
 ~~~
 
+- `python run_casos.py` ejecuta los 12 casos y guarda las respuestas del agente.
+- `python run_casos.py --evaluar` hace lo mismo y, después, evalúa esas respuestas mediante código, comparándolas con los datos y las condiciones.
+
 El último comando prepara Ollama y el modelo, ejecuta los **12 casos** y crea en tu computadora la carpeta `salidas_ollama_corregido/`, donde guarda las respuestas y la evaluación. Los resultados incluidos en este repositorio están en [entrega/](entrega/). No necesitas instalar paquetes Python ni configurar una clave API. La IA se ejecuta en tu computadora.
 
 **Primera vez:** necesita Internet y descarga varios GB; puede superar cinco minutos según la conexión y el equipo. **Después:** reutiliza lo instalado. Desde la carpeta del proyecto, solo ejecuta `python run_casos.py --evaluar`.
