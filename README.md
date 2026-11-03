@@ -74,12 +74,7 @@ Qwen interpreta la pregunta; el programa comprueba los datos y redacta la respue
 
 ## Evaluación y consumo
 
-**Elegimos la evaluación por código como criterio principal.** Contrasta hechos con los CSV y condicionados mediante comprobaciones explícitas, reproducibles y verificables; aprobarlas acredita esos criterios, no que el sistema sea infalible.
-
-Se probó Qwen como alternativa complementaria, pero no se eligió como criterio de aprobación. Aunque acertó ocho ejemplos de calibración, sus juicios dependen de las instrucciones y necesitan comprobarse con ejemplos; esto no exige entrenar nuevamente el modelo ni garantiza concordancia en otras consultas.
-
-- En la prueba real de 12 casos, pidió revisar dos respuestas respaldadas: la derivación financiera de CP-07 y la aclaración de cobertura de CP-10.
-- Añade tiempo y tokens a cada revisión, sin sustituir las comprobaciones del programa.
+Se opta por una evaluación por código porque comprueba hechos concretos contra los CSV y las condiciones, con criterios más fáciles de explicar y verificar. Qwen también podría evaluar las respuestas, pero no se eligió como evaluador principal: en las pruebas cuestionó respuestas respaldadas, necesita más calibración y añade tiempo y consumo de tokens.
 
 Ejecuta el flujo normal completo con un comando:
 
