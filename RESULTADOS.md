@@ -254,8 +254,16 @@ Fuentes: polizas:POL-1011; siniestros:S-5533
 - La suite actual pasó 216 pruebas, incluyendo historial propio, identificación de pólizas, cobertura general, terceros y consultas mixtas.
 - Consumo de este lote de 12: 5349 tokens de entrada y 513 de salida; 5862 totales y 32.419 segundos de inferencia. Los tres controles previos tuvieron cero llamadas.
 - Las cuatro consultas adicionales en una consola con C001 se midieron aparte y sumaron 2537 tokens. No se suman a las nueve llamadas de estos doce casos.
-- En una versión anterior se inventaron un motivo de rechazo y un plazo; la corrección separó interpretación, reglas y respuestas. Esta ejecución es posterior y no reetiqueta resultados anteriores.
 - Las consultas naturales de historial, póliza y cobertura y sus respuestas reales están en [entrega/CONSULTAS_HISTORIAL.md](entrega/CONSULTAS_HISTORIAL.md).
 - CP-08 mantiene el supuesto de última actualización como aproximación a fecha de rechazo.
 - Las pruebas y la revisión asistida verifican estos casos y controles; no garantizan comprensión o seguridad universal ni sustituyen una autenticación de producción.
 - Matriz de las ocho reglas y evidencia: [entrega/VERIFICACION.md](entrega/VERIFICACION.md).
+
+### Fallo detectado y corregido: CP-03 (versión anterior)
+
+- **Pregunta:** «¿Por qué me rechazaron el siniestro S-5524? No entiendo.»
+- **Respuesta errónea:** en una ejecución anterior con generación libre se respondió: «El siniestro S-5524 fue rechazado debido a una posible falta de aviso o no cumplimiento de las condiciones del ramo vehicular.» Después se explicó el plazo general de aviso de 72 horas.
+- **Lo que registraban las fuentes:** el [expediente S-5524](datos/siniestros.csv) indica «Conductor en estado de ebriedad según dosaje etílico (0.9 g/l)» y la cláusula «Vehicular 5.2». La [cláusula 5.2](condicionados/vehicular.md) establece el umbral de 0.5 g/l. El CSV consigna ocurrencia el 17/08/2026 y aviso el 18/08/2026; no registra falta de aviso como motivo de rechazo.
+- **Por qué fue un error:** se sustituyó el motivo registrado por una posibilidad basada en una regla general. La ejecución terminó con estado técnico `ok`, pero la evaluación la clasificó como `incorrecto` por el motivo falso y la cláusula omitida. Ejecutarse sin errores no garantiza una respuesta correcta.
+- **Qué se corrigió:** Qwen interpreta la pregunta; el código lee el motivo y la cláusula del expediente y construye la explicación con esas fuentes. El modelo ya no redacta esa justificación.
+- **Resultado actual:** CP-03 explica el dosaje de 0.9 g/l y la cláusula 5.2 correctamente. El fallo pertenece a la versión anterior, no al último lote de doce casos. Reportarlo permite ver el riesgo de dar una justificación falsa y comprobar su corrección.
