@@ -28,19 +28,37 @@ En Linux o macOS se reutiliza un servicio Ollama local ya iniciado; no se instal
 
 ## Consultas y consola
 
-Consulta individual con una sesión de demostración:
+### Consulta individual
+
+Para enviar una pregunta con una sesión de demostración:
 
 ~~~powershell
 python consultar.py --rol cliente --usuario C001 --mensaje "¿En qué estado está mi siniestro S-5521?"
 ~~~
 
-Consola interactiva:
+### Consola interactiva
+
+Para escribir varias preguntas manteniendo la misma identidad:
 
 ~~~powershell
 python consultar.py --rol cliente --usuario C001 --interactivo
 ~~~
 
 Escribe `salir` o `exit` para terminar. La sesión conserva su identidad, pero las consultas son independientes: no hay memoria de conversación.
+
+### Consultas en lote: los 12 casos
+
+Para atender automáticamente todas las consultas de `casos_prueba/casos_prueba.json`, sin escribir los doce mensajes a mano:
+
+~~~powershell
+python run_casos.py --evaluar
+~~~
+
+El programa las procesa **una tras otra**. Cada caso utiliza su propio rol e identificador como sesión simulada: no se ejecutan todos con el mismo usuario.
+
+Por ejemplo, `CP-01` usa al cliente `C001` para preguntar por el estado de S-5521; `CP-02` usa al cliente `C002` para consultar un choque. El programa atiende ambas y los otros diez casos con la identidad correspondiente.
+
+Las doce respuestas quedan en `salidas_ollama_corregido/respuestas.json`; los informes automáticos se guardan en esa misma carpeta. Los criterios se explican en [Evaluación y consumo](#evaluación-y-consumo).
 
 Los argumentos de rol y usuario **simulan una sesión ya autenticada**. En producción los proporcionaría el servidor; conocer un DNI o escribir otro cargo no concede permisos.
 
