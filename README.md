@@ -122,8 +122,6 @@ La **API** es la conexión local entre el programa y Ollama en tu computadora. C
 
 Si preguntas por **S-5521** y Qwen interpreta **S-5522**, el programa detecta que el código no coincide y le pide corregirlo **una sola vez**. Tú no tienes que repetir la pregunta. Si hay dos intentos, se suman los tokens de ambos.
 
-- **Cero:** el programa respondió sin consultar a Qwen.
-- **Desconocido:** no se recibió un contador válido de algún intento; el consumo puede estar incompleto y no se supone cero ni un total exacto.
 
 No se calcula un costo monetario: Ollama local no cobra una tarifa por token.
 
