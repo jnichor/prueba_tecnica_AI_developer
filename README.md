@@ -62,6 +62,16 @@ Las doce respuestas quedan en `salidas_ollama_corregido/respuestas.json`; los in
 
 Los argumentos de rol y usuario **simulan una sesión ya autenticada**. En producción los proporcionaría el servidor; conocer un DNI o escribir otro cargo no concede permisos.
 
+## Cómo funciona
+
+Por ejemplo, C001 pregunta: **«¿En qué estado está mi siniestro S-5521?»**
+
+1. Qwen reconoce que se pide el estado y que el código es S-5521. La identidad C001 viene de la sesión, no del texto de la pregunta.
+2. El programa comprueba el código y busca el registro entre los datos que ese cliente puede consultar. En este caso, encuentra que está **en evaluación**.
+3. Construye la respuesta con la fuente `siniestros:S-5521` y guarda la consulta, el usuario, las herramientas utilizadas y la respuesta.
+
+Qwen interpreta la pregunta; el programa comprueba los datos y redacta la respuesta. Cuando la consulta lo requiere, también revisa los artículos de los condicionados. Los controles de privacidad, cambios no permitidos y asesoría pueden responder antes de consultar a Qwen.
+
 ## Evaluación y consumo
 
 Ejecuta el flujo normal completo con un comando:
@@ -142,16 +152,6 @@ Dentro de `salidas_ollama_corregido/`:
 Las nuevas ejecuciones escriben en `salidas_ollama_corregido/`. Esas carpetas de trabajo no forman parte de la entrega publicada. Los artefactos seleccionados están en `entrega/`.
 
 La revisión de contenido se realizó **con asistencia de Codex**, contrastando los CSV y artículos del paquete. No fue una evaluación humana ciega. Coincidió con las comprobaciones automáticas existentes: 12 casos correctos. Esto acredita los casos y controles verificados, no seguridad universal.
-
-## Cómo funciona
-
-Por ejemplo, C001 pregunta: **«¿En qué estado está mi siniestro S-5521?»**
-
-1. Qwen reconoce que se pide el estado y que el código es S-5521. La identidad C001 viene de la sesión, no del texto de la pregunta.
-2. El programa comprueba el código y busca el registro entre los datos que ese cliente puede consultar. En este caso, encuentra que está **en evaluación**.
-3. Construye la respuesta con la fuente `siniestros:S-5521` y guarda la consulta, el usuario, las herramientas utilizadas y la respuesta.
-
-Qwen interpreta la pregunta; el programa comprueba los datos y redacta la respuesta. Cuando la consulta lo requiere, también revisa los artículos de los condicionados. Los controles de privacidad, cambios no permitidos y asesoría pueden responder antes de consultar a Qwen.
 
 ## Pruebas y límites
 
