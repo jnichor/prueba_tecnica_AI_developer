@@ -137,24 +137,34 @@ La revisión de contenido se realizó **con asistencia de Codex**, contrastando 
 
 ## Cómo funciona
 
-`planning.py` interpreta la intención y entidades en un esquema de siete campos. El modelo recibe la consulta y el contexto mínimo de sesión; no recibe expedientes ni condicionados, no genera SQL y no redacta la respuesta final.
+Por ejemplo, C001 pregunta: **«¿En qué estado está mi siniestro S-5521?»**
 
-`resolver.py` aplica las reglas, consulta SQL parametrizado, recupera artículos y construye la respuesta con evidencia. `tools.py` valida identidad, restringe las filas accesibles y mantiene SQL de solo lectura. Las otras herramientas buscan condiciones y registran tickets locales.
+1. Qwen reconoce que se pide el estado y que el código es S-5521. La identidad C001 viene de la sesión, no del texto de la pregunta.
+2. El programa comprueba el código y busca el registro entre los datos que ese cliente puede consultar. En este caso, encuentra que está **en evaluación**.
+3. Construye la respuesta con la fuente `siniestros:S-5521` y guarda la consulta, el usuario, las herramientas utilizadas y la respuesta.
+
+Qwen interpreta la pregunta; el programa comprueba los datos y redacta la respuesta. Cuando la consulta lo requiere, también revisa los artículos de los condicionados. Los controles de privacidad, cambios no permitidos y asesoría pueden responder antes de consultar a Qwen.
 
 ## Pruebas y límites
+
+### Qué comprueban las pruebas
 
 ~~~powershell
 python -m unittest discover -s tests
 ~~~
 
-Las 179 pruebas cubren permisos, escrituras bloqueadas, planes maliciosos, fuentes, fechas, recuperación, preparación, consola, evaluación y consumo. La preparación en un equipo limpio se comprobó con archivos y servicios simulados; la prueba real reutilizó el modelo disponible, no otra computadora física.
+Estas pruebas comprueban los permisos, el bloqueo de cambios, las reglas y las fuentes, entre otros comportamientos del programa. No equivalen a hacer todas esas consultas a Qwen ni garantizan que se entienda cualquier frase.
 
-- Fecha del ejercicio: **15 de octubre de 2026**; entrega validada el **2 de noviembre de 2026**.
-- En el agregado trimestral se usa última actualización como aproximación a fecha de rechazo. No hay historial de estados que garantice la fecha de decisión.
-- No hay historial de primas ni fecha de anulación para reconstruir todos los eventos pasados.
-- Los tickets son locales: no notifican a una persona. Las consultas no soportadas se aclaran o derivan.
-- La CLI no implementa autenticación de producción, cifrado de logs ni atención multiusuario.
-- El documento confidencial del enunciado no se incluye. Sus referencias en las respuestas identifican políticas configuradas, sin requerir ese PDF para ejecutar.
+La preparación de una instalación nueva se probó con archivos y servicios simulados. La prueba real usó el modelo disponible en la misma computadora; no se validó otra computadora física.
+
+### Hasta dónde llega esta demostración
+
+- **Fecha fija:** las consultas usan el 15 de octubre de 2026 como fecha del ejercicio.
+- **Rechazos por trimestre:** se usa la última actualización del registro porque los datos no incluyen la fecha de rechazo. Es una aproximación y puede no coincidir con el día de la decisión.
+- **Datos incompletos:** no hay historial de pagos de primas ni fecha de anulación. Si falta información, se pide una aclaración o revisión humana; no se inventa.
+- **Atención pendiente:** un ticket se guarda como archivo local; no envía un aviso a un asesor.
+- **Acceso de prueba:** la consola permite elegir un usuario. Antes de atender clientes reales, hacen falta una verificación de identidad, protección de los registros guardados y atención de varios usuarios.
+- **Enunciado excluido:** el PDF confidencial no se incluye ni se necesita para ejecutar. Las referencias a `ENUNCIADO.pdf` señalan las reglas implementadas en el programa.
 
 ## Uso de asistentes de IA
 
