@@ -86,22 +86,6 @@ Para dar el caso por correcto, también se revisan la fecha, las fuentes y los d
 
 Lo importante es ver **qué debía responder, qué respondió y por qué está bien o mal**.
 
-### Revisar respuestas ya guardadas
-
-Para reevaluar tu último lote real:
-
-~~~powershell
-python evaluar.py --entrada salidas_ollama_corregido/respuestas.json
-~~~
-
-Para revisar la evidencia incluida en el repositorio:
-
-~~~powershell
-python evaluar.py --entrada entrega/respuestas.json
-~~~
-
-Ambos comandos leen respuestas existentes: no generan otras, no llaman a Qwen ni descargan modelos. Guardan el informe junto a la entrada; `--informe` y `--salida-json` permiten elegir otros destinos.
-
 Los tokens provienen de la API por consulta y reintento. Los controles sin llamadas registran cero; contadores ausentes se marcan desconocidos o incompletos. No se calcula costo monetario. El lote validado usó **3549 tokens de entrada + 517 de salida = 4066 en total**.
 
 Las **179 pruebas** verifican funciones y controles del código. Aquí se evalúan las **12 respuestas finales**, revisadas también con asistencia de Codex. El último lote cumplió las 12 comprobaciones, con nueve llamadas a Qwen y tres controles previos.
