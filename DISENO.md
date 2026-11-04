@@ -68,7 +68,7 @@ Los datos disponibles no incluyen historial de primas ni fecha de anulación. Si
 Antes de usar el sistema con clientes reales haría lo siguiente:
 
 1. Verificar quién entra y permitirle consultar únicamente los datos que le corresponden.
-2. Conectar el sistema con los datos de la empresa en BigQuery. Esa conexión aún no está implementada.
+2. Usar BigQuery para consultar los datos de la empresa y Vertex AI para ejecutar el modelo en la nube. Estas conexiones aún no están implementadas.
 3. Ejecutarlo en un servidor, para que no dependa de una computadora personal.
 4. Guardar las consultas y respuestas de forma segura, y enviar las solicitudes a un equipo de atención real.
 5. Medir el tiempo y el consumo, y probar regularmente que las respuestas coincidan con los datos y las condiciones.
