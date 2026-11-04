@@ -204,7 +204,7 @@ class EvaluationTests(unittest.TestCase):
     def test_cli_chooses_real_ai_output_when_both_modes_exist(self):
         for folder in ("datos", "condicionados", "casos_prueba"):
             shutil.copytree(ROOT / folder, self.root / folder)
-        for folder in ("salidas", "salidas_ollama"):
+        for folder in ("salidas_offline", "salidas_ollama"):
             (self.root / folder).mkdir()
             batch = copy.deepcopy(self.baseline)
             if folder == "salidas_ollama":
@@ -213,7 +213,7 @@ class EvaluationTests(unittest.TestCase):
         with patch.object(cli, "ROOT", self.root), patch("sys.argv", ["evaluar.py"]), redirect_stdout(io.StringIO()):
             self.assertEqual(cli.main(), 1)
         self.assertTrue((self.root / "salidas_ollama/evaluacion_automatica.json").exists())
-        self.assertFalse((self.root / "salidas/evaluacion_automatica.json").exists())
+        self.assertFalse((self.root / "salidas_offline/evaluacion_automatica.json").exists())
 
     def test_historical_unknown_tokens_remain_unknown(self):
         report = evaluar_reporte(copy.deepcopy(self.baseline))
@@ -226,7 +226,7 @@ class EvaluationTests(unittest.TestCase):
     def test_cli_prioritizes_corrected_ai_output_without_overwriting_old_report(self):
         for folder in ("datos", "condicionados", "casos_prueba"):
             shutil.copytree(ROOT / folder, self.root / folder)
-        for folder in ("salidas", "salidas_ollama", "salidas_ollama_corregido"):
+        for folder in ("salidas_offline", "salidas_ollama", "salidas_ollama_corregido"):
             (self.root / folder).mkdir()
             batch = copy.deepcopy(self.baseline)
             if folder != "salidas_ollama_corregido":
@@ -238,6 +238,21 @@ class EvaluationTests(unittest.TestCase):
             self.assertEqual(cli.main(), 0)
         self.assertTrue((self.root / "salidas_ollama_corregido/evaluacion_automatica.json").exists())
         self.assertEqual(historical_report.read_text(encoding="utf-8"), "Informe histórico conservado")
+
+    def test_cli_default_sin_ejecuciones_no_lee_ni_reescribe_salidas_publicadas(self):
+        published = self.root / "salidas"
+        published.mkdir()
+        original_results = json.dumps(self.baseline, ensure_ascii=False).encode("utf-8")
+        (published / "respuestas.json").write_bytes(original_results)
+        original_report = b'Informe publicado: conservar\n'
+        (published / "evaluacion_automatica.md").write_bytes(original_report)
+        with patch.object(cli, "ROOT", self.root), patch("sys.argv", ["evaluar.py"]), \
+                patch.object(cli, "evaluar_reporte") as assess, redirect_stdout(io.StringIO()):
+            self.assertEqual(cli.main(), 2)
+        assess.assert_not_called()
+        self.assertEqual((published / "respuestas.json").read_bytes(), original_results)
+        self.assertEqual((published / "evaluacion_automatica.md").read_bytes(), original_report)
+        self.assertFalse((published / "evaluacion_automatica.json").exists())
 
     def test_unverified_auxiliary_tokens_are_ignored(self):
         source = self.root / "respuestas.json"

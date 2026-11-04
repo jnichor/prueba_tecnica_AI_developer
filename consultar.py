@@ -48,7 +48,7 @@ def main():
             return 1
     session = {"rol": args.rol, "usuario_id": args.usuario}
     try:
-        agent = Agent(root=ROOT, output_dir=args.salida or ROOT / ("salidas_ollama_corregido" if args.modo == "ollama" else "salidas"),
+        agent = Agent(root=ROOT, output_dir=args.salida or ROOT / ("salidas_ollama_corregido" if args.modo == "ollama" else "salidas_offline"),
                       modo=args.modo, modelo=modelo)
         if not agent.tools.validate_session(session):
             print("La sesión simulada no es válida. Verifica el rol y el identificador.")

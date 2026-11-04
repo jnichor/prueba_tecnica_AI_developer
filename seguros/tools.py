@@ -148,7 +148,7 @@ class Tools:
 
     def __init__(self, root: Path | None = None, output_dir: Path | None = None, safe_model: bool = False):
         self.root = Path(root) if root is not None else ROOT
-        self.output_dir = Path(output_dir) if output_dir is not None else self.root / "salidas"
+        self.output_dir = Path(output_dir) if output_dir is not None else self.root / "salidas_offline"
         self.data = DataStore(self.root, safe_model=safe_model)
         self.fragments = []
         for path in sorted((self.root / "condicionados").glob("*.md")):

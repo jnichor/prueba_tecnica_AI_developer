@@ -8,6 +8,7 @@ Revisión de contenido con asistencia de Codex contra los CSV, los artículos y 
 - Tokens: 5,349 de entrada + 513 de salida = 5,862.
 - Tiempo acumulado de inferencia: 32.419 segundos.
 - Suite de regresión registrada: 216 pruebas aprobadas.
+- Comprobación del renombre de carpetas (4 de noviembre): 218 pruebas del código aprobadas; no se repitieron las consultas al modelo.
 
 ## Matriz de las ocho reglas
 

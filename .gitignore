@@ -6,11 +6,10 @@ __pycache__/
 # Los logs de pruebas contienen datos ficticios; no versionar logs de producción.
 .pytest_cache/
 ENUNCIADO.pdf
-salidas/
 salidas_*/
 *.jsonl
 .runtime/
 .entrega/
 # Muestras ficticias revisadas que forman parte de la entrega pública.
-!entrega/muestra_interacciones.jsonl
-!entrega/muestra_tickets.jsonl
+!salidas/muestra_interacciones.jsonl
+!salidas/muestra_tickets.jsonl

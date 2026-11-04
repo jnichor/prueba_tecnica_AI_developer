@@ -25,7 +25,7 @@ def main():
     source = args.entrada
     if source is None:
         candidates = [ROOT / "salidas_ollama_corregido/respuestas.json",
-                      ROOT / "salidas_ollama/respuestas.json", ROOT / "salidas/respuestas.json"]
+                      ROOT / "salidas_ollama/respuestas.json", ROOT / "salidas_offline/respuestas.json"]
         source = next((candidate for candidate in candidates if candidate.is_file()), candidates[-1])
     try:
         results = json.loads(source.read_text(encoding="utf-8-sig"))

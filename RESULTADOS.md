@@ -4,7 +4,7 @@
 **Modelo de IA:** qwen2.5:7b mediante Ollama 0.40.13; interpreta intención y entidades, y el código verifica y construye la respuesta.  
 **Fecha de referencia:** 15 de octubre de 2026.  
 **Última ejecución real:** 03/11/2026, 13:49:25–13:49:57, Lima.  
-**Salida entregada:** [entrega/respuestas.json](entrega/respuestas.json), copia íntegra del lote de validación del código actual.
+**Salida entregada:** [salidas/respuestas.json](salidas/respuestas.json), copia íntegra del lote de validación del código actual.
 
 **Comando utilizado:**
 
@@ -251,13 +251,13 @@ Fuentes: polizas:POL-1011; siniestros:S-5533
 
 ## Observaciones generales
 
-- La suite actual pasó 216 pruebas, incluyendo historial propio, identificación de pólizas, cobertura general, terceros y consultas mixtas.
+- La comprobación del código del 4 de noviembre aprobó 218 pruebas, incluyendo historial propio, identificación de pólizas, cobertura general, terceros y consultas mixtas.
 - Consumo de este lote de 12: 5349 tokens de entrada y 513 de salida; 5862 totales y 32.419 segundos de inferencia. Los tres controles previos tuvieron cero llamadas.
 - Las cuatro consultas adicionales en una consola con C001 se midieron aparte y sumaron 2537 tokens. No se suman a las nueve llamadas de estos doce casos.
-- Las consultas naturales de historial, póliza y cobertura y sus respuestas reales están en [entrega/CONSULTAS_HISTORIAL.md](entrega/CONSULTAS_HISTORIAL.md).
+- Las consultas naturales de historial, póliza y cobertura y sus respuestas reales están en [salidas/CONSULTAS_HISTORIAL.md](salidas/CONSULTAS_HISTORIAL.md).
 - CP-08 mantiene el supuesto de última actualización como aproximación a fecha de rechazo.
 - Las pruebas y la revisión asistida verifican estos casos y controles; no garantizan comprensión o seguridad universal ni sustituyen una autenticación de producción.
-- Matriz de las ocho reglas y evidencia: [entrega/VERIFICACION.md](entrega/VERIFICACION.md).
+- Matriz de las ocho reglas y evidencia: [salidas/VERIFICACION.md](salidas/VERIFICACION.md).
 
 ### Fallo detectado y corregido: CP-03 (versión anterior)
 

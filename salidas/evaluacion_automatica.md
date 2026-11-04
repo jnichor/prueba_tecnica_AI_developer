@@ -2,7 +2,7 @@
 
 Reglas acotadas del paquete; no certificación semántica universal ni sustituto de revisión humana.
 
-Entrada: entrega/respuestas.json
+Entrada: salidas/respuestas.json
 
 Un estado técnico `ok` no equivale a una respuesta correcta. Los hechos se evalúan en el cuerpo; las citas se contrastan por separado con trazas y fuentes originales.
 

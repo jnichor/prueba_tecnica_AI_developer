@@ -31,7 +31,7 @@ def main():
         if args.modo == "offline":
             print("El modo offline no necesita preparación ni usa red.")
         return 0
-    args.salida = args.salida or ROOT / ("salidas_ollama_corregido" if args.modo == "ollama" else "salidas")
+    args.salida = args.salida or ROOT / ("salidas_ollama_corregido" if args.modo == "ollama" else "salidas_offline")
     cases = json.loads((ROOT / "casos_prueba" / "casos_prueba.json").read_text(encoding="utf-8-sig"))
     agent = Agent(root=ROOT, output_dir=args.salida, modo=args.modo, modelo=modelo,
                   fecha_referencia=cases["fecha_referencia"])

@@ -17,7 +17,7 @@ python run_casos.py --evaluar
 - `python run_casos.py` ejecuta los 12 casos y guarda las respuestas del agente.
 - `python run_casos.py --evaluar` hace lo mismo y, después, evalúa esas respuestas mediante código, comparándolas con los datos y las condiciones.
 
-El último comando prepara Ollama y el modelo, ejecuta los **12 casos** y crea en tu computadora la carpeta `salidas_ollama_corregido/`, donde guarda las respuestas y la evaluación. Los resultados incluidos en este repositorio están en [entrega/](entrega/). No necesitas instalar paquetes Python ni configurar una clave API. La IA se ejecuta en tu computadora.
+El último comando prepara Ollama y el modelo, ejecuta los **12 casos** y crea en tu computadora la carpeta `salidas_ollama_corregido/`, donde guarda las respuestas y la evaluación. Los resultados incluidos en este repositorio están en [salidas/](salidas/). Esta carpeta contiene salidas y muestras; el proyecto completo incluye también el código y la documentación. No necesitas instalar paquetes Python ni configurar una clave API. La IA se ejecuta en tu computadora.
 
 **Primera vez:** necesita Internet y descarga varios GB; puede superar cinco minutos según la conexión y el equipo. **Después:** reutiliza lo instalado. Desde la carpeta del proyecto, solo ejecuta `python run_casos.py --evaluar`.
 
@@ -60,7 +60,7 @@ python consultar.py --rol cliente --usuario C001 --interactivo
 
 Escribe `salir` o `exit` para terminar. La sesión conserva su identidad, pero las consultas son independientes: no hay memoria de conversación.
 
-También puedes preguntar **«¿he tenido algun siniestro?»** o **«Yo he tenido algun siniestro?»**, sin conocer un código. El agente lista los registros de la sesión autenticada; el código queda como opción para pedir detalles. [Evidencia de esas consultas reales](entrega/CONSULTAS_HISTORIAL.md).
+También puedes preguntar **«¿he tenido algun siniestro?»** o **«Yo he tenido algun siniestro?»**, sin conocer un código. El agente lista los registros de la sesión autenticada; el código queda como opción para pedir detalles. [Evidencia de esas consultas reales](salidas/CONSULTAS_HISTORIAL.md).
 
 ### Consultas en lote: los 12 casos
 
@@ -166,16 +166,16 @@ Dentro de `salidas_ollama_corregido/`:
 | --- | --- |
 | [DISENO.md](DISENO.md) | Arquitectura, decisiones, alternativas y límites |
 | [RESULTADOS.md](RESULTADOS.md) | Las 12 respuestas exactas, herramientas, fuentes y evaluación |
-| [entrega/respuestas.json](entrega/respuestas.json) | Salida íntegra del último lote con IA |
-| [entrega/muestra_interacciones.jsonl](entrega/muestra_interacciones.jsonl) | Muestra de auditoría de consultas, sesiones, herramientas y respuestas |
-| [entrega/muestra_tickets.jsonl](entrega/muestra_tickets.jsonl) | Ticket local de derivación |
-| [entrega/evaluacion_automatica.md](entrega/evaluacion_automatica.md) | Comprobaciones automáticas por criterio |
-| [entrega/evaluacion_automatica.json](entrega/evaluacion_automatica.json) | Evaluación en formato estructurado |
-| [entrega/VERIFICACION.md](entrega/VERIFICACION.md) | Evidencia del lote y matriz de las ocho reglas |
-| [entrega/CONSULTAS_HISTORIAL.md](entrega/CONSULTAS_HISTORIAL.md) | Las cuatro consultas reales de historial, póliza y cobertura |
-| [entrega/fuentes_sha256.json](entrega/fuentes_sha256.json) | Huellas para comprobar los archivos de evidencia |
+| [salidas/respuestas.json](salidas/respuestas.json) | Salida íntegra del último lote con IA |
+| [salidas/muestra_interacciones.jsonl](salidas/muestra_interacciones.jsonl) | Muestra de auditoría de consultas, sesiones, herramientas y respuestas |
+| [salidas/muestra_tickets.jsonl](salidas/muestra_tickets.jsonl) | Ticket local de derivación |
+| [salidas/evaluacion_automatica.md](salidas/evaluacion_automatica.md) | Comprobaciones automáticas por criterio |
+| [salidas/evaluacion_automatica.json](salidas/evaluacion_automatica.json) | Evaluación en formato estructurado |
+| [salidas/VERIFICACION.md](salidas/VERIFICACION.md) | Evidencia del lote y matriz de las ocho reglas |
+| [salidas/CONSULTAS_HISTORIAL.md](salidas/CONSULTAS_HISTORIAL.md) | Las cuatro consultas reales de historial, póliza y cobertura |
+| [salidas/fuentes_sha256.json](salidas/fuentes_sha256.json) | Huellas para comprobar los archivos de evidencia |
 
-Las nuevas ejecuciones escriben en `salidas_ollama_corregido/`. Esas carpetas de trabajo no forman parte de la entrega publicada. Los artefactos seleccionados están en `entrega/`.
+Las nuevas ejecuciones escriben en `salidas_ollama_corregido/`. Esas carpetas de trabajo no forman parte de la entrega publicada. Los artefactos seleccionados están en `salidas/`.
 
 La revisión de contenido se realizó **con asistencia de Codex**, contrastando los CSV y artículos del paquete. No fue una evaluación humana ciega. Coincidió con las comprobaciones automáticas existentes: 12 casos correctos. Esto acredita los casos y controles verificados, no seguridad universal.
 

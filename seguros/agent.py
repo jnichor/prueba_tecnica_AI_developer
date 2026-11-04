@@ -18,7 +18,7 @@ class Agent:
     def __init__(self, root=None, output_dir=None, modo="ollama", modelo=None,
                  fecha_referencia="2026-10-15"):
         self.root = Path(root) if root else ROOT
-        self.output_dir = Path(output_dir) if output_dir else self.root / ("salidas" if modo == "offline" else "salidas_ollama_corregido")
+        self.output_dir = Path(output_dir) if output_dir else self.root / ("salidas_offline" if modo == "offline" else "salidas_ollama_corregido")
         load_env(self.root / ".env")
         if modo not in {"offline", "ollama"}:
             raise ValueError("Modo permitido: offline u ollama.")

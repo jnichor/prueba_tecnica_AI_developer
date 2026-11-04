@@ -56,8 +56,8 @@ def public_path(root, relative):
     posix = PurePosixPath(relative)
     if not relative or "\\" in relative or ":" in relative or posix.is_absolute() or any(part in {".", ".."} for part in relative.split("/")):
         raise ValueError("Ruta pública inválida: " + relative)
-    forbidden = {".git", ".runtime", "__pycache__", ".entrega", "salidas", "salidas_ollama", "salidas_ollama_corregido"}
-    if any(part in forbidden for part in posix.parts) or posix.name in {".env", "ENUNCIADO.pdf"}:
+    forbidden = {".git", ".runtime", "__pycache__", ".entrega"}
+    if any(part in forbidden or part.startswith("salidas_") for part in posix.parts) or posix.name in {".env", "ENUNCIADO.pdf"}:
         raise ValueError("Archivo excluido de la entrega pública: " + relative)
     path = root / relative
     if not path.resolve().is_relative_to(root.resolve()) or path.is_symlink():
@@ -80,16 +80,16 @@ def public_files(root):
     for directory, suffixes in PUBLIC_GROUPS.items():
         paths.extend(path.relative_to(root).as_posix() for path in sorted((root / directory).iterdir())
                      if path.is_file() and path.suffix in suffixes)
-    paths.extend("entrega/" + name for name in DELIVERY_FILES)
-    if (root / "entrega/CONSULTAS_HISTORIAL.md").is_file():
-        paths.append("entrega/CONSULTAS_HISTORIAL.md")
+    paths.extend("salidas/" + name for name in DELIVERY_FILES)
+    if (root / "salidas/CONSULTAS_HISTORIAL.md").is_file():
+        paths.append("salidas/CONSULTAS_HISTORIAL.md")
     paths.append("tests/fixtures/respuestas_offline.json")
     paths.append("scripts/preparar_entrega.py")
     return sorted(set(paths))
 
 
 def prepare(root, source):
-    destination = root / "entrega"
+    destination = root / "salidas"
     required = ("respuestas.json", "interactions.jsonl", "tickets.jsonl",
                 "evaluacion_automatica.md", "evaluacion_automatica.json")
     snapshots = {name: (source / name).read_bytes() for name in required}
@@ -141,7 +141,7 @@ def prepare(root, source):
         (destination / name).write_text("".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows), encoding="utf-8")
     (destination / "evaluacion_automatica.json").write_bytes(snapshots["evaluacion_automatica.json"])
     auto_text = snapshots["evaluacion_automatica.md"].decode("utf-8-sig")
-    auto_text = re.sub(r"(?m)^Entrada:[^\r\n]*", "Entrada: entrega/respuestas.json", auto_text)
+    auto_text = re.sub(r"(?m)^Entrada:[^\r\n]*", "Entrada: salidas/respuestas.json", auto_text)
     (destination / "evaluacion_automatica.md").write_bytes(auto_text.encode("utf-8"))
     manual = snapshots.get("EVALUACION.md", b"").decode("utf-8-sig").replace("\r\n", "\n")
     matrix = manual.split("## Matriz de las ocho reglas\n", 1)[1].split("## Regresiones", 1)[0].strip() if manual else FALLBACK_MATRIX
@@ -225,7 +225,7 @@ def main():
             _, count = package(ROOT)
             print(f"Entrega preparada: {count} archivos en el ZIP y el manifiesto local.")
         else:
-            print("Evidencia preparada en entrega/. Revisa los tres documentos antes de usar --empaquetar.")
+            print("Evidencia preparada en salidas/. Revisa los tres documentos antes de usar --empaquetar.")
     except (ValueError, OSError, KeyError, IndexError, UnicodeError) as exc:
         parser.error(str(exc))
 

@@ -90,8 +90,20 @@ class SetupEntrypointTests(unittest.TestCase):
         preparar.assert_not_called()
         self.assertEqual(eventos, ["agente", "consulta"])
         self.assertEqual(creado["modo"], "offline")
-        self.assertTrue((self.root / "salidas/respuestas.json").is_file())
+        self.assertTrue((self.root / "salidas_offline/respuestas.json").is_file())
         self.assertFalse((self.root / ".runtime").exists())
+
+    def test_runner_offline_default_preserva_respuestas_publicadas_en_salidas(self):
+        published = self.root / "salidas/respuestas.json"
+        published.parent.mkdir()
+        original = b'{"evidencia_publicada":true}\n'
+        published.write_bytes(original)
+        codigo, _, creado, preparar, _, _ = self.ejecutar(run_casos, ["--modo", "offline"])
+        self.assertEqual(codigo, 0)
+        preparar.assert_not_called()
+        self.assertEqual(creado["output_dir"], self.root / "salidas_offline")
+        self.assertTrue((self.root / "salidas_offline/respuestas.json").is_file())
+        self.assertEqual(published.read_bytes(), original)
 
     def test_solo_preparar_no_crea_agente_ni_ejecuta_casos(self):
         codigo, eventos, _, preparar, agente, _ = self.ejecutar(run_casos, ["--solo-preparar"])
@@ -115,7 +127,7 @@ class SetupEntrypointTests(unittest.TestCase):
         self.assertEqual(eventos, ["preparar"])
         agente.assert_not_called()
         self.assertIn("Preparación falló", texto)
-        self.assertFalse((self.root / "salidas/respuestas.json").exists())
+        self.assertFalse((self.root / "salidas_offline/respuestas.json").exists())
         self.assertFalse((self.root / "salidas_ollama_corregido/respuestas.json").exists())
 
     def test_modelo_cli_prevalece_sobre_entorno_y_se_usa_el_preparado(self):
@@ -152,10 +164,11 @@ class SetupEntrypointTests(unittest.TestCase):
     def test_consulta_individual_offline_no_prepara(self):
         with patch("seguros.bootstrap.urlopen", side_effect=AssertionError("Offline no debe preparar servicios")), \
                 patch("seguros.model.urlopen", side_effect=AssertionError("Offline no debe consultar modelos")):
-            codigo, eventos, _, preparar, _, _ = self.ejecutar(consultar, [
+            codigo, eventos, creado, preparar, _, _ = self.ejecutar(consultar, [
                 "--rol", "cliente", "--usuario", "C001", "--mensaje", "Consulta", "--modo", "offline"])
         self.assertEqual(codigo, 0)
         self.assertEqual(eventos, ["agente", "consulta"])
+        self.assertEqual(creado["output_dir"], self.root / "salidas_offline")
         preparar.assert_not_called()
 
     def test_consulta_individual_error_preparacion_sin_agente(self):
