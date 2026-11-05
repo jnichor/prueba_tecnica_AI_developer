@@ -281,6 +281,93 @@ class BusinessRuleTests(unittest.TestCase):
         self.assertNotIn("necesito el evento", result["respuesta"].lower())
         self.assertFalse(any(t["nombre"] == "escalar_humano" for t in result["herramientas"]))
 
+    def test_seguros_que_tengo_muestra_poliza_propia_con_distintas_formas_de_preguntar(self):
+        # Son distintas formas de pedir la misma lista; el usuario ya viene de la sesión.
+        messages = ("dime los seguros que tengo", "¿Cuáles son los seguros que tengo?",
+                    "muéstrame las pólizas que tengo", "quiero ver los seguros que tengo",
+                    "lista los seguros que tengo contratados")
+        for message in messages:
+            with self.subTest(message=message):
+                instance = self.agent(plan("consultar_polizas"))
+                result = instance.respond(message, {"rol": "cliente", "usuario_id": "C001"})
+                self.assertEqual(result["estado"], "ok")
+                self.assertEqual({source for source in result["fuentes"] if source.startswith("polizas:")},
+                                 {"polizas:POL-1001"})
+                self.assertEqual(set(re.findall(r"\bPOL-\d+\b", result["respuesta"])), {"POL-1001"})
+                for value in ("Auto Total", "2026-01-15", "2027-01-14"):
+                    self.assertIn(value, result["respuesta"])
+                self.assertNotIn("precisa si", result["respuesta"].lower())
+                self.assertFalse(any(tool["nombre"] == "escalar_humano" for tool in result["herramientas"]))
+                rows = [row for tool in result["herramientas"] if tool["nombre"] == "consulta_datos"
+                        for row in tool["resultado"].get("filas", [])]
+                self.assertTrue(rows)
+                self.assertTrue(all(row["cliente_id"] == "C001" for row in rows))
+
+    def test_seguros_que_tengo_lista_las_tres_polizas_de_c008(self):
+        instance = self.agent(plan("consultar_polizas"))
+        result = instance.respond("dime los seguros que tengo", {"rol": "cliente", "usuario_id": "C008"})
+        with (ROOT / "datos/polizas.csv").open(encoding="utf-8-sig", newline="") as stream:
+            policies = [row for row in csv.DictReader(stream) if row["cliente_id"] == "C008"]
+        expected = {row["poliza_id"] for row in policies}
+        self.assertEqual(len(expected), 3)
+        self.assertEqual(result["estado"], "ok")
+        self.assertEqual(set(re.findall(r"\bPOL-\d+\b", result["respuesta"])), expected)
+        self.assertEqual({source.removeprefix("polizas:") for source in result["fuentes"]
+                          if source.startswith("polizas:")}, expected)
+        for row in policies:
+            for value in (row["producto"], row["fecha_inicio"], row["fecha_fin"]):
+                self.assertIn(value, result["respuesta"])
+        rows = [row for tool in result["herramientas"] if tool["nombre"] == "consulta_datos"
+                for row in tool["resultado"].get("filas", [])]
+        self.assertEqual({row["poliza_id"] for row in rows}, expected)
+        self.assertTrue(all(row["cliente_id"] == "C008" for row in rows))
+
+    def test_pedir_seguros_del_esposo_o_mezclarlos_no_abre_el_listado(self):
+        for message in ("dime los seguros que tiene mi esposo",
+                        "dime los seguros que tengo y los de mi esposo"):
+            with self.subTest(message=message):
+                instance = self.agent(plan("consultar_polizas"))
+                result = instance.respond(message, {"rol": "cliente", "usuario_id": "C001"})
+                self.assertFalse(any(source.startswith("polizas:") for source in result["fuentes"]))
+                self.assertFalse(any(tool["nombre"] == "consulta_datos" for tool in result["herramientas"]))
+                self.assertNotRegex(result["respuesta"], r"\bPOL-\d+\b")
+
+    def test_mezclar_codigos_propios_y_ajenos_no_muestra_polizas_ajenas(self):
+        instance = self.agent(plan("consultar_polizas"))
+        result = instance.respond("dime los seguros que tengo: POL-1001 y POL-1003", {
+            "rol": "cliente", "usuario_id": "C001"})
+        self.assertNotIn("polizas:POL-1003", result["fuentes"])
+        self.assertNotIn("Auto Esencial", result["respuesta"])
+        self.assertFalse(any(tool["nombre"] == "consulta_datos" for tool in result["herramientas"]))
+
+    def test_actualizar_mis_seguros_no_se_convierte_en_una_consulta(self):
+        before = (ROOT / "datos/polizas.csv").read_bytes()
+        instance = self.agent(plan("consultar_polizas"))
+        result = instance.respond("actualiza mis seguros", {"rol": "cliente", "usuario_id": "C001"})
+        self.assertIn("no puedo", result["respuesta"].lower())
+        self.assertIn("modificar", result["respuesta"].lower())
+        self.assertEqual(instance.model.calls, [])
+        self.assertFalse(any(tool["nombre"] == "consulta_datos" for tool in result["herramientas"]))
+        self.assertEqual((ROOT / "datos/polizas.csv").read_bytes(), before)
+
+    def test_pedir_listado_y_recomendacion_sigue_derivando_a_un_asesor(self):
+        instance = self.agent(plan("asesoria"))
+        result = instance.respond("qué seguros tengo y cuál me recomiendas", {
+            "rol": "cliente", "usuario_id": "C001"})
+        self.assert_ticket(instance, result)
+        self.assertNotIn("te recomiendo", result["respuesta"].lower())
+        self.assertFalse(any(tool["nombre"] == "consulta_datos" for tool in result["herramientas"]))
+        self.assertFalse(any(source.startswith("polizas:") for source in result["fuentes"]))
+
+    def test_cuanto_me_cubre_sigue_pidiendo_aclaracion_sin_asignar_cobertura(self):
+        instance = self.agent(plan("aclaracion"))
+        result = instance.respond("¿Cuánto me cubre?", {"rol": "cliente", "usuario_id": "C008"})
+        label, reason = evaluar({"id": "CP-10", **result})
+        self.assertEqual(label, "Sí", reason)
+        self.assertIn("¿", result["respuesta"])
+        self.assertIn("evento", result["respuesta"].lower())
+        self.assertFalse(any(tool["nombre"] == "buscar_condicionados" for tool in result["herramientas"]))
+
     def test_listado_multipoliza_no_selecciona_una_arbitrariamente(self):
         instance = self.agent(plan("consultar_polizas"))
         result = instance.respond("¿Cuáles son mis pólizas?", {"rol": "cliente", "usuario_id": "C008"})

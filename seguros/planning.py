@@ -128,7 +128,11 @@ def own_policy_request(message):
             or re.search(r"\b\d{8}\b|\b(?:y|o)\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+\b", message)
             or re.search(r"\b(?:cobertur\w*|cubr\w*|deducible\w*|aprueb\w*|aprob\w*|actualiz\w*|modific\w*|elimin\w*|borr\w*)\b", text)):
         return False
-    own = re.search(r"\b(?:mis?\s+(?:polizas?|seguros?)|(?:polizas?|seguros?)\s+(?:tengo|a\s+mi\s+nombre))\b", text)
+    # Une el seguro con quien lo tiene, aunque haya palabras entre ambos:
+    # "los seguros que tengo" o "las pólizas que están a mi nombre".
+    policy = r"(?:polizas?|seguros?)"
+    own_relation = r"(?:tengo|(?:(?:esta|estan|figura|figuran)\s+)?a\s+mi\s+nombre)"
+    own = re.search(rf"\b(?:mis?\s+{policy}|{policy}(?:\s+contratad[oa]s?)?\s+(?:que\s+)?{own_relation})\b", text)
     request = re.search(r"\b(?:cual(?:es)?|que|dime|muestr\w*|consult\w*|tengo|listar|lista|ver|conocer)\b", text)
     return bool(own and request)
 

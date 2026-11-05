@@ -104,6 +104,24 @@ class ResolverTests(unittest.TestCase):
                 self.assertNotIn("evento", answer)
                 self.assertNotIn("cirugía", answer)
 
+    def test_policy_question_with_que_tengo_lists_only_the_session_policies(self):
+        for user, policy in (("C001", "POL-1001"), ("C002", "POL-1002")):
+            for message in ("dime los seguros que tengo", "Muéstrame las pólizas que tengo",
+                            "Consultar los seguros que están a mi nombre"):
+                with self.subTest(user=user, message=message):
+                    self.trace.clear()
+                    answer = self.resolver.resolve({"intent": "consultar_polizas"}, message,
+                                                   {"rol": "cliente", "usuario_id": user})
+                    self.assertIn(policy, answer)
+                    self.assertNotIn("Precisa si deseas", answer)
+                    query = next(args for name, args, _ in self.trace if name == "consulta_datos")
+                    rows = next(result["filas"] for name, _, result in self.trace if name == "consulta_datos")
+                    sources = next(result["fuentes"] for name, _, result in self.trace if name == "consulta_datos")
+                    self.assertEqual(query["parametros"], [user])
+                    self.assertTrue(rows)
+                    self.assertTrue(all(row["cliente_id"] == user for row in rows))
+                    self.assertIn("polizas:" + policy, sources)
+
     def test_policy_list_includes_all_own_policies_without_arbitrary_selection(self):
         answer = self.resolver.resolve({"intent": "consultar_polizas"}, "¿Cuáles son mis pólizas?", {"rol": "cliente", "usuario_id": "C008"})
         for identifier in ("POL-1008", "POL-1009", "POL-1010"):

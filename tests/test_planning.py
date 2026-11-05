@@ -69,6 +69,27 @@ class PlanValidationTests(unittest.TestCase):
         self.assertEqual(Planner(model).interpret(message, {"rol": "cliente", "usuario_id": "C001"}), correct)
         self.assertEqual(len(model.calls), 2)
 
+    def test_policy_discovery_recognizes_relative_clauses_and_own_name(self):
+        messages = ("dime los seguros que tengo", "Muéstrame las pólizas que tengo",
+                    "dime cuáles son los seguros que tengo", "¿Qué seguros tengo contratados?",
+                    "Ver seguros que están a mi nombre", "Consultar la póliza que está a mi nombre",
+                    "¿Qué pólizas figuran a mi nombre?", "Ver seguros contratados a mi nombre")
+        for message in messages:
+            with self.subTest(message=message):
+                self.assertTrue(own_policy_request(message))
+                self.assertEqual(offline_plan(message)["intent"], "consultar_polizas")
+                self.assertEqual(schema_for_message(message)["properties"]["intent"]["enum"], ["consultar_polizas"])
+                self.assertIsNone(offline_plan(message)["poliza_id"])
+
+    def test_relative_clause_does_not_accept_other_owners_advice_or_changes(self):
+        messages = ("Dime los seguros que tiene mi esposo", "Dime los seguros que tengo y los de Pedro",
+                    "Dime las pólizas que tengo y las de C003", "¿Qué seguros tiene otra persona?",
+                    "¿Qué seguros que tengo me recomiendas mantener?", "Modifica los seguros que tengo",
+                    "Dime qué seguros que tengo cubren un choque", "¿Cuánto me cubre?")
+        for message in messages:
+            with self.subTest(message=message):
+                self.assertFalse(own_policy_request(message))
+
     def test_policy_discovery_does_not_reclassify_other_owners_or_coverage(self):
         for message in ("¿Qué pólizas tiene mi esposo?", "Dime mis pólizas y las de C002", "Dime mis pólizas y las de Pedro",
                         "Muéstrame mi póliza y la de mi hermana", "¿Cuánto me cubre?",

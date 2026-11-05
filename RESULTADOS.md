@@ -14,7 +14,7 @@ python -m scripts.run_casos --modo ollama --modelo qwen2.5:7b --salida salidas_r
 
 **Registro histórico:** la ejecución del 3 de noviembre usó `python run_casos.py --modo ollama --modelo qwen2.5:7b --salida salidas_publicacion_verificada --evaluar`, cuando ese archivo estaba en la raíz. Esa ruta antigua ya no es el comando vigente. El cambio de ubicación no modifica las respuestas ni las mediciones históricas que se muestran a continuación.
 
-**Revalidación del 4 de noviembre:** los nuevos comandos por módulos superaron 222 pruebas y otra ejecución real de los 12 casos, con arranque automático de Ollama. Las respuestas coincidieron con las publicadas salvo el identificador nuevo del ticket. Esa comprobación adicional no reemplaza el lote ni las métricas del 3 de noviembre detallados en este documento.
+**Revalidación del 4 de noviembre:** las consultas propias, incluida «dime los seguros que tengo», superaron 232 pruebas y otra ejecución real de los 12 casos. Las respuestas coincidieron con las publicadas salvo el identificador nuevo del ticket. Esa comprobación adicional no reemplaza el lote ni las métricas del 3 de noviembre detallados en este documento.
 
 ## Resumen
 

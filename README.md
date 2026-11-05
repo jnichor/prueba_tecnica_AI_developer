@@ -2,7 +2,7 @@
 
 Prueba técnica desarrollada por **Jesus Nicho Rosado**. La solución consulta datos y condiciones de seguros, explica sus fuentes y deriva casos a atención humana. Usa Python y un modelo local mediante Ollama.
 
-La validación del 4 de noviembre de 2026 documenta 12 casos correctos con `qwen2.5:7b` y 222 pruebas aprobadas. Tres casos se resolvieron con controles previos sin IA. Además se verificaron consultas naturales de historial, póliza y cobertura en la consola. Los datos son ficticios.
+La validación del 4 de noviembre de 2026 documenta 12 casos correctos con `qwen2.5:7b` y 232 pruebas aprobadas. Tres casos se resolvieron con controles previos sin IA. Además se verificaron consultas naturales de historial, póliza y cobertura en la consola. Los datos son ficticios.
 
 ## Cómo está organizado
 
