@@ -91,6 +91,22 @@ class PlanValidationTests(unittest.TestCase):
                 self.assertFalse(general_help_request(message))
                 self.assertNotEqual(offline_plan(message)["intent"], "ayuda")
 
+    def test_own_products_mean_the_insurance_policies_of_the_session(self):
+        for message in ("quiero consultar sobre mis productos", "Quiero ver mis productos",
+                        "dime los productos que tengo", "Consultar productos a mi nombre",
+                        "Quiero consultar mis seguros"):
+            with self.subTest(message=message):
+                self.assertTrue(own_policy_request(message))
+                self.assertEqual(offline_plan(message)["intent"], "consultar_polizas")
+                self.assertEqual(schema_for_message(message)["properties"]["intent"]["enum"], ["consultar_polizas"])
+
+    def test_product_word_does_not_allow_other_owners_advice_or_changes(self):
+        for message in ("quiero consultar los productos de mi esposo", "mis productos y los de C002",
+                        "mis productos y los de Pedro", "Que productos me recomiendas",
+                        "Modifica mis productos", "Que productos ofrecen", "Consultar todos los productos"):
+            with self.subTest(message=message):
+                self.assertFalse(own_policy_request(message))
+
     def test_own_policy_discovery_does_not_need_a_policy_code(self):
         for message in ("dime cual es mi poliza", "¿Cuál es mi póliza?", "Muéstrame mis pólizas",
                         "¿Qué seguros tengo?", "Quiero consultar mis seguros", "Listar pólizas a mi nombre"):

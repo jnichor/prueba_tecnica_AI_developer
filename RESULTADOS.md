@@ -14,7 +14,7 @@ python -m scripts.run_casos --modo ollama --modelo qwen2.5:7b --salida salidas_r
 
 **Registro histórico:** la ejecución del 3 de noviembre usó `python run_casos.py --modo ollama --modelo qwen2.5:7b --salida salidas_publicacion_verificada --evaluar`, cuando ese archivo estaba en la raíz. Esa ruta antigua ya no es el comando vigente. El cambio de ubicación no modifica las respuestas ni las mediciones históricas que se muestran a continuación.
 
-**Revalidación del 4 de noviembre:** la ayuda y las consultas propias se comprobaron con 245 pruebas. La regresión real anterior de los 12 casos conservó las respuestas publicadas salvo el identificador del ticket. Al ampliar después los alias de ayuda, se verificaron los doce esquemas sin cambios, doce casos offline y tres preguntas reales de consola, sin repetir ese lote Qwen. Estas comprobaciones no reemplazan las respuestas ni las métricas del 3 de noviembre detalladas en este documento.
+**Revalidación del 4 de noviembre:** la ayuda y las consultas propias se comprobaron con 248 pruebas. La regresión real anterior de los 12 casos conservó las respuestas publicadas salvo el identificador del ticket. Al ampliar después los alias de ayuda, se verificaron los doce esquemas sin cambios, doce casos offline y tres preguntas reales de consola, sin repetir ese lote Qwen. Estas comprobaciones no reemplazan las respuestas ni las métricas del 3 de noviembre detalladas en este documento.
 
 ## Resumen
 

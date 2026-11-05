@@ -198,7 +198,7 @@ class Resolver:
                 return "No pude recuperar las reglas de este canal. Solicita una revisión por un canal de atención."
         advisor = session["rol"] == "asesor"
         self.policy_sources = [PRIVACY]
-        policies = "Consultar pólizas, productos y vigencias autorizados" if advisor else "Ver tus pólizas, productos y vigencias"
+        policies = "Consultar los seguros autorizados y sus fechas de vigencia" if advisor else "Ver tus seguros y sus fechas de vigencia"
         claims = "Consultar expedientes autorizados, su estado y motivo de rechazo" if advisor else "Consultar tus siniestros, su estado y motivo de rechazo"
         lines = ["Puedo ayudarte a:", "- " + policies + ".", "- " + claims + ".",
                  "- Explicar coberturas y condiciones del seguro.",

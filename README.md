@@ -2,7 +2,7 @@
 
 Prueba técnica desarrollada por **Jesus Nicho Rosado**. La solución consulta datos y condiciones de seguros, explica sus fuentes y deriva casos a atención humana. Usa Python y un modelo local mediante Ollama.
 
-La validación del 4 de noviembre de 2026 documenta 12 casos correctos con `qwen2.5:7b` y 245 pruebas aprobadas. Tres casos se resolvieron con controles previos sin IA. Además se verificaron consultas naturales de historial, póliza y cobertura en la consola. Los datos son ficticios.
+La validación del 4 de noviembre de 2026 documenta 12 casos correctos con `qwen2.5:7b` y 248 pruebas aprobadas. Tres casos se resolvieron con controles previos sin IA. Además se verificaron consultas naturales de historial, póliza y cobertura en la consola. Los datos son ficticios.
 
 ## Cómo está organizado
 
@@ -52,7 +52,11 @@ La configuración opcional está en [.env.example](.env.example). `--modelo` pre
 
 ## Consultas y consola
 
-Puedes preguntar «¿De qué puedes darme información?» para ver qué consultas puede atender el asistente.
+Puedes escribir preguntas como estas:
+
+- «¿Qué puedo consultar?» muestra las funciones del asistente.
+- «¿Qué seguros tengo?» lista tus seguros.
+- «Quiero consultar sobre mis productos» también lista tus seguros: «producto» es el nombre del seguro, como Auto Total, no un catálogo.
 
 ### Consulta individual
 

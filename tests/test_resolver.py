@@ -76,7 +76,7 @@ class ResolverTests(unittest.TestCase):
                 self.trace.clear()
                 answer = self.resolver.resolve({"intent": intent}, "de que puedes darme informacion", self.session)
                 self.assertIn("Puedo ayudarte", answer)
-                self.assertIn("pólizas", answer)
+                self.assertIn("seguros y sus fechas de vigencia", answer)
                 self.assertNotIn("POL-", answer)
                 self.assertNotIn("S-5521", answer)
                 self.assertEqual([name for name, _, _ in self.trace], ["buscar_condicionados"] * 3)
@@ -124,6 +124,22 @@ class ResolverTests(unittest.TestCase):
         self.assertNotIn("nunca", empty)
         self.assertNotIn("S-5521", other)
         self.assertIn("Sí, encontré 2", other)
+
+    def test_own_products_list_only_the_session_insurance_policies(self):
+        for message in ("quiero consultar sobre mis productos", "dime los productos que tengo"):
+            with self.subTest(message=message):
+                self.trace.clear()
+                answer = self.resolver.resolve({"intent": "consultar_polizas"}, message, self.session)
+                self.assertIn("POL-1001", answer)
+                self.assertIn("Auto Total", answer)
+                query = next(args for name, args, _ in self.trace if name == "consulta_datos")
+                self.assertEqual(query["parametros"], ["C001"])
+                rows = next(result["filas"] for name, _, result in self.trace if name == "consulta_datos")
+                self.assertTrue(all(row["cliente_id"] == "C001" for row in rows))
+        self.trace.clear()
+        answer = self.resolver.resolve({"intent": "consultar_polizas"}, "mis productos y los de C002", self.session)
+        self.assertNotIn("consulta_datos", [name for name, _, _ in self.trace])
+        self.assertNotIn("POL-", answer)
 
     def test_identifying_own_policy_does_not_require_an_event(self):
         for intent in ("consultar_polizas", "aclaracion"):

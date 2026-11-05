@@ -130,7 +130,8 @@ def own_policy_request(message):
         return False
     # Une el seguro con quien lo tiene, aunque haya palabras entre ambos:
     # "los seguros que tengo" o "las pólizas que están a mi nombre".
-    policy = r"(?:polizas?|seguros?)"
+    # "Mis productos" se refiere a sus seguros, no a un catalogo de ventas.
+    policy = r"(?:polizas?|seguros?|productos?)"
     own_relation = r"(?:tengo|(?:(?:esta|estan|figura|figuran)\s+)?a\s+mi\s+nombre)"
     own = re.search(rf"\b(?:mis?\s+{policy}|{policy}(?:\s+contratad[oa]s?)?\s+(?:que\s+)?{own_relation})\b", text)
     request = re.search(r"\b(?:cual(?:es)?|que|dime|muestr\w*|consult\w*|tengo|listar|lista|ver|conocer)\b", text)

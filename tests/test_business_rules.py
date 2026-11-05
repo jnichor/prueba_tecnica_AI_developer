@@ -205,7 +205,7 @@ class BusinessRuleTests(unittest.TestCase):
                 result = instance.respond(message, {"rol": "cliente", "usuario_id": "C001"})
                 self.assertEqual(result["estado"], "ok")
                 text = result["respuesta"].lower()
-                for topic in ("póliz", "siniestro", "estado", "rechazo", "cobertura"):
+                for topic in ("seguros", "siniestro", "estado", "rechazo", "cobertura"):
                     self.assertIn(topic, text)
                 self.assertTrue("ticket" in text or "solicitud" in text)
                 self.assertIn("local", text)
@@ -231,7 +231,7 @@ class BusinessRuleTests(unittest.TestCase):
                 instance = self.agent(plan("ayuda"))
                 result = instance.respond(message, {"rol": "cliente", "usuario_id": "C001"})
                 self.assertEqual(result["estado"], "ok")
-                for topic in ("póliz", "siniestro", "cobertura"):
+                for topic in ("seguros", "siniestro", "cobertura"):
                     self.assertIn(topic, result["respuesta"].lower())
                 self.assertNotIn(full_name, result["respuesta"])
                 self.assertNotRegex(result["respuesta"], r"\b(?:POL-\d+|S-\d+)\b")
