@@ -1,4 +1,8 @@
-"""Preparación local e idempotente de Ollama; no modifica la instalación global."""
+"""Prepara Ollama antes de ejecutar los comandos de casos o consola. Reutiliza servicio
+y modelo; cuando faltan, puede descargar y arrancar una distribución portátil en
+Windows x64. Los archivos y procesos propios quedan en .runtime, sin configurar una
+instalación global.
+"""
 
 import errno
 import hashlib
@@ -32,7 +36,9 @@ DEFAULT_MODEL = "qwen2.5:7b"
 
 
 class SetupError(RuntimeError):
-    """Error recuperable de preparación, para mostrar sin traceback en la CLI."""
+    """Error de preparación que los comandos muestran de forma breve. Impide ejecutar
+    casos cuando no se pudo verificar el servicio o el modelo.
+    """
 
 
 def _json(base_url, endpoint, data=None, timeout=10):
@@ -51,6 +57,10 @@ def _json(base_url, endpoint, data=None, timeout=10):
 
 
 def _probe(base_url):
+    """Comprueba si Ollama responde en la dirección local. Una conexión rechazada
+    significa ausencia; un problema de permisos no autoriza iniciar un servidor
+    duplicado.
+    """
     try:
         result = _json(base_url, "/api/version", timeout=3)
         if not isinstance(result.get("version"), str):
@@ -94,6 +104,9 @@ def _pid_alive(pid):
 
 @contextmanager
 def _setup_lock(runtime, progress, timeout=900):
+    """Coordina preparaciones simultáneas mediante un archivo con dueño y plazo. Libera
+    únicamente su propio bloqueo y evita colisiones de instalación.
+    """
     runtime.mkdir(parents=True, exist_ok=True)
     path = runtime / "setup.lock"
     token = uuid.uuid4().hex
@@ -142,6 +155,10 @@ def _hash(path):
 
 
 def _download_archive(runtime, progress):
+    """Descarga el ZIP oficial a un archivo parcial y comprueba el SHA-256 fijado.
+    Devuelve solo un archivo verificado; descarta una descarga inconsistente antes de
+    ejecutarla.
+    """
     archive = runtime / f"ollama-windows-amd64-{VERSION}.zip"
     partial = archive.with_suffix(".zip.part")
     if archive.is_file():
@@ -183,6 +200,9 @@ def _download_archive(runtime, progress):
 
 
 def _safe_extract(archive, target):
+    """Verifica tamaños y rutas del ZIP antes de extraerlo en el destino. Rechaza
+    enlaces y recorridos fuera de esa carpeta para no escribir archivos ajenos.
+    """
     with zipfile.ZipFile(archive) as bundle:
         entries = bundle.infolist()
         unpacked_bytes = sum(item.file_size for item in entries)
@@ -200,6 +220,10 @@ def _safe_extract(archive, target):
 
 
 def _install_runtime(runtime, progress):
+    """Extrae el archivo verificado en una carpeta temporal y publica la instalación
+    completa. Devuelve el ejecutable y limpia solo temporales creados dentro de
+    .runtime.
+    """
     archive = _download_archive(runtime, progress)
     stage = Path(tempfile.mkdtemp(prefix="ollama-extract-", dir=runtime))
     destination = runtime / "ollama"
@@ -226,6 +250,9 @@ def _install_runtime(runtime, progress):
 
 
 def _binary(runtime):
+    """Busca un ejecutable portátil o ya instalado sin cambiar el PATH. Devuelve su ruta
+    o None; no instala nada por sí misma.
+    """
     portable = runtime / "ollama" / "ollama.exe"
     if portable.is_file():
         return portable.resolve()
@@ -242,6 +269,10 @@ def _binary(runtime):
 
 
 def _start_server(binary, runtime, base_url):
+    """Inicia un proceso propio oculto, ligado a localhost y a carpetas de la
+    demostración. Devuelve el proceso y guarda sus logs y PID sin tocar perfiles ni
+    servicios ajenos.
+    """
     parsed = urlparse(base_url)
     if parsed.scheme != "http":
         raise SetupError("El inicio automático requiere una URL http local; HTTPS necesita un servidor configurado por ti.")
@@ -264,9 +295,22 @@ def _start_server(binary, runtime, base_url):
 
 
 def _wait_ready(base_url, process, timeout=90):
+    """Espera la disponibilidad del proceso recién iniciado con un plazo. Devuelve la
+    versión de Ollama o falla sin esperar indefinidamente.
+    """
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        version = _probe(base_url)
+        try:
+            version = _probe(base_url)
+        except SetupError as exc:
+            cause = exc.__cause__
+            if isinstance(cause, URLError) and not isinstance(cause, HTTPError):
+                cause = cause.reason
+            if not isinstance(cause, TimeoutError):
+                raise
+            # Solo esperamos al proceso creado aquí; un inicio frío puede tardar
+            # en responder. Permisos y errores HTTP conservan su fallo inmediato.
+            version = None
         if version:
             return version
         if process.poll() is not None:
@@ -289,6 +333,9 @@ def _has_model(tags, model):
 
 
 def _pull_model(base_url, model, progress):
+    """Solicita la descarga del modelo al servidor y muestra su avance. Solo termina
+    normalmente cuando Ollama informa éxito; no inventa una instalación completada.
+    """
     progress(f"Descargando el modelo {model}; qwen2.5:7b ocupa aproximadamente 4.7 GB…")
     request = Request(base_url + "/api/pull", data=json.dumps({"model": model, "stream": True}).encode("utf-8"),
                       headers={"Content-Type": "application/json"})
@@ -320,7 +367,12 @@ def _pull_model(base_url, model, progress):
 
 
 def ensure_ollama(modelo=None, base_url=None, root=None, prepare=True, progress=print):
-    """Asegura servidor y modelo; prepare=True además lo carga sin inferencias."""
+    """Recibe modelo, servidor local, raíz y opciones de preparación; devuelve un
+    resumen del estado. Reutiliza lo existente, verifica descargas y carga el modelo
+    antes de atender casos. La instalación automática requiere Windows x64; otros
+    sistemas deben tener un servicio local iniciado. Los fallos se muestran sin usar
+    offline como sustituto.
+    """
     root = Path(root).resolve() if root else Path(__file__).resolve().parents[1]
     model = modelo or os.getenv("OLLAMA_MODEL", DEFAULT_MODEL)
     if not isinstance(model, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}", model):

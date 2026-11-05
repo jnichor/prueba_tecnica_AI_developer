@@ -1,4 +1,6 @@
-"""Preparación limpia con ZIP y red ficticios; nunca descarga modelos reales."""
+"""Preparación de Ollama con red, procesos y archivos de descarga simulados.
+
+Verifica reutilización, integridad, límites y fallos sin descargar modelos ni iniciar servicios."""
 
 import hashlib
 import io
@@ -12,17 +14,19 @@ from contextlib import ExitStack
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 
 from seguros import bootstrap as b
 
 
 class Response(io.BytesIO):
+    """Respuesta HTTP en memoria para probar el contrato de descarga."""
     def geturl(self):
         return b.ARCHIVE_URL
 
 
 def fixture_zip(entries=None):
+    """Construye un ZIP pequeño para probar integridad y extracción."""
     stream = io.BytesIO()
     with zipfile.ZipFile(stream, "w") as archive:
         for name, content in entries or [("ollama.exe", b"fixture: nunca ejecutar"), ("lib/lectura.txt", b"fixture")]:
@@ -31,6 +35,7 @@ def fixture_zip(entries=None):
 
 
 class BootstrapTests(unittest.TestCase):
+    """Preparación reproducible sin descargas, procesos ni servicios reales."""
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
@@ -45,6 +50,7 @@ class BootstrapTests(unittest.TestCase):
         self.process.poll.return_value = None
 
     def network(self, request, timeout=0):
+        """Simula endpoints de Ollama y la descarga sin usar red."""
         url = request.full_url
         if url == b.ARCHIVE_URL:
             self.events.append("download")
@@ -72,6 +78,7 @@ class BootstrapTests(unittest.TestCase):
         return Response(json.dumps(result).encode())
 
     def popen(self, args, **kwargs):
+        """Registra el inicio solicitado sin ejecutar el binario de prueba."""
         self.assertTrue(Path(args[0]).is_file())
         self.assertEqual(Path(args[0]).read_bytes(), b"fixture: nunca ejecutar")
         self.assertEqual(args[1], "serve")
@@ -85,6 +92,7 @@ class BootstrapTests(unittest.TestCase):
         return self.process
 
     def environment(self):
+        """Aisla plataforma, red y procesos para reproducir el arranque."""
         stack = ExitStack()
         stack.enter_context(patch.dict(os.environ, {"USERPROFILE": str(self.root / "perfil")}, clear=True))
         stack.enter_context(patch.object(b.sys, "platform", "win32"))
@@ -102,6 +110,7 @@ class BootstrapTests(unittest.TestCase):
         return stack
 
     def prepare(self, **kwargs):
+        """Ejecuta la preparación bajo los servicios simulados del escenario."""
         return b.ensure_ollama(root=self.root, progress=lambda _: None, **kwargs)
 
     def test_clean_setup_verifies_extracts_starts_pulls_and_warms_in_order(self):
@@ -202,6 +211,68 @@ class BootstrapTests(unittest.TestCase):
         self.assertFalse((self.root / ".runtime").exists())
         self.assertNotIn("download", self.events)
         self.assertNotIn("start", self.events)
+
+    def test_owned_startup_retries_timeout_until_server_is_ready(self):
+        for failure in (TimeoutError("fixture: inicio lento"), URLError(TimeoutError("fixture: inicio lento"))):
+            with self.subTest(error=type(failure).__name__):
+                process = Mock()
+                process.poll.return_value = None
+                ready = Response(json.dumps({"version": "fixture"}).encode())
+                with patch.object(b, "urlopen", side_effect=[failure, ready]) as network, \
+                        patch.object(b.time, "monotonic", side_effect=[0, 0, 1]), \
+                        patch.object(b.time, "sleep") as sleep:
+                    self.assertEqual(b._wait_ready("http://localhost:11434", process), {"version": "fixture"})
+                self.assertEqual(network.call_count, 2)
+                process.poll.assert_called_once()
+                sleep.assert_called_once_with(1)
+                process.terminate.assert_not_called()
+
+    def test_owned_startup_timeout_respects_deadline_and_process_exit(self):
+        for exited in (False, True):
+            with self.subTest(process_exited=exited):
+                process = Mock()
+                process.poll.return_value = 9 if exited else None
+                clock = [0, 0] if exited else [0, 0, 2]
+                message = "terminó antes" if exited else "no respondió"
+                with patch.object(b, "urlopen", side_effect=TimeoutError("fixture: inicio lento")) as network, \
+                        patch.object(b.time, "monotonic", side_effect=clock), \
+                        patch.object(b.time, "sleep") as sleep:
+                    with self.assertRaisesRegex(b.SetupError, message):
+                        b._wait_ready("http://localhost:11434", process, timeout=1)
+                network.assert_called_once()
+                process.poll.assert_called_once()
+                if exited:
+                    sleep.assert_not_called()
+                else:
+                    sleep.assert_called_once_with(1)
+
+    def test_owned_startup_permission_and_http_errors_are_not_retried(self):
+        failures = (
+            (URLError(PermissionError(10013, "fixture")), "permisos"),
+            # HTTPError hereda de URLError: su motivo no autoriza tratarlo como arranque lento.
+            (HTTPError("http://localhost:11434/api/version", 503, TimeoutError("fixture"), None, None), "HTTP 503"),
+        )
+        for failure, message in failures:
+            with self.subTest(error=type(failure).__name__):
+                process = Mock()
+                with patch.object(b, "urlopen", side_effect=failure) as network, \
+                        patch.object(b.time, "monotonic", side_effect=[0, 0]), \
+                        patch.object(b.time, "sleep") as sleep:
+                    with self.assertRaisesRegex(b.SetupError, message):
+                        b._wait_ready("http://localhost:11434", process)
+                network.assert_called_once()
+                sleep.assert_not_called()
+                process.poll.assert_not_called()
+
+    def test_initial_probe_timeout_does_not_start_another_server(self):
+        for failure in (TimeoutError("fixture: servidor ocupado"), URLError(TimeoutError("fixture: servidor ocupado"))):
+            with self.subTest(error=type(failure).__name__):
+                with self.environment(), patch.object(b, "urlopen", side_effect=failure):
+                    with self.assertRaisesRegex(b.SetupError, "no responde"):
+                        self.prepare()
+                self.assertFalse((self.root / ".runtime").exists())
+                self.assertNotIn("download", self.events)
+                self.assertNotIn("start", self.events)
 
     def test_unsupported_system_requires_existing_server(self):
         with self.environment(), patch.object(b.sys, "platform", "linux"):
