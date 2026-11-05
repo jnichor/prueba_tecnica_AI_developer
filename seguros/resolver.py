@@ -1,7 +1,6 @@
-"""Resuelve planes con datos autorizados y plantillas; no redacta hechos con IA.
-
-El modelo nunca recibe los resultados de estas herramientas. Las reglas y sus
-valores se verifican contra los artículos recuperados en cada consulta.
+"""Construye respuestas a partir de datos y condiciones comprobados. Agent entrega un
+plan validado a Resolver, que consulta las herramientas y explica sus resultados
+mediante texto programado. Los expedientes y artículos no se envían a Qwen.
 """
 
 import calendar
@@ -31,15 +30,26 @@ def clean(text):
 
 
 class Resolver:
+    """Recibe la fecha fija del ejercicio y una función para llamar herramientas.
+    Produce respuestas y referencias de políticas, manteniendo separadas las
+    consultas y las decisiones de indemnización.
+    """
     def __init__(self, today, call):
         self.today = today
         self.call = call
         self.policy_sources = []
 
     def _sql(self, sql, session, parameters=None):
+        """Envía SQL y parámetros a la herramienta de datos con la sesión recibida.
+        Devuelve sus filas y fuentes; la herramienta impone los permisos y la lectura
+        exclusiva.
+        """
         return self.call("consulta_datos", {"sql": sql, "parametros": parameters or []}, session)
 
     def _article(self, branch, number, session):
+        """Busca un artículo de un ramo y devuelve su texto y fuente exactos. Si el
+        documento o la referencia no coinciden, devuelve ausencia de evidencia.
+        """
         result = self.call("buscar_condicionados", {"consulta": f"articulo {number}", "ramo": branch}, session)
         document = "condiciones_generales" if branch == "general" else branch
         expected = f"condicionados/{document}.md"
@@ -52,12 +62,19 @@ class Resolver:
 
     @staticmethod
     def _clause(text, number):
+        """Extrae una cláusula numerada y limpia su formato para explicarla. Rechaza
+        texto con señales de instrucciones ajenas al condicionado.
+        """
         match = re.search(rf"(?m)^{re.escape(str(number))}\.\s+(.+)$", text or "")
         if not match or re.search(r"\b(ignora|instrucciones|system|assistant|prompt|promete|aprueba)\b", normalize(match[1])):
             return None
         return clean(match[1])
 
     def _escalate(self, message, session, reason="Información insuficiente o inconsistente"):
+        """Recibe el mensaje que necesita revisión y registra un ticket con contexto
+        limitado. Devuelve su identificador o avisa del fallo; el archivo local no
+        contacta automáticamente a un asesor.
+        """
         self.policy_sources = list(dict.fromkeys([*self.policy_sources, NO_INVENT]))
         ticket = self.call("escalar_humano", {"motivo": reason, "detalle": message[:4000]}, session)
         if ticket.get("error") or not ticket.get("ticket_id"):
@@ -65,6 +82,9 @@ class Resolver:
         return message + f" Registré el ticket local {ticket['ticket_id']}, pendiente de atención; no implica contacto automático."
 
     def _advice(self, message, session):
+        """Identifica el tipo de asesoría solicitada y devuelve una derivación con
+        fuentes. No recomienda inversiones, tratamientos ni acciones legales.
+        """
         text = normalize(message)
         medical = any(word in text for word in ("operarme", "medicamento", "tratamiento", "diagnostic", "asesoria medica"))
         legal = any(word in text for word in ("legal", "juridic", "demandar", "demando", "abogado"))
@@ -76,6 +96,10 @@ class Resolver:
         return self._escalate(f"No puedo brindarte asesoría {kind}. Debe atenderte un profesional autorizado para ese tema.", session, "Asesoría " + kind)
 
     def guard(self, message, session):
+        """Comprueba solicitudes de cambios, asesoría y datos ajenos antes de
+        interpretar. Devuelve una respuesta protegida o None para continuar; la
+        identidad sigue siendo la de la sesión.
+        """
         self.policy_sources = []
         text = normalize(message)
         if re.search(r"\b(aprueba|aprobar|rechaza|actualiza|modifica|elimina|borra)\b", text):
@@ -100,6 +124,9 @@ class Resolver:
 
     @staticmethod
     def _literal_id(plan, name, message, prefix):
+        """Obtiene un único identificador completo del mensaje y lo contrasta con el
+        plan. Devuelve None si hay ambigüedad o el modelo propuso otro código.
+        """
         identifiers = set(value.upper() for value in literal_ids(message, prefix))
         if len(identifiers) != 1:
             return None
@@ -109,6 +136,10 @@ class Resolver:
         return planned.upper() if planned else next(iter(identifiers))
 
     def resolve(self, plan, message, session):
+        """Recibe plan, pregunta y sesión y dirige la consulta a la función del tema.
+        Devuelve texto fundamentado, una aclaración o una derivación; no acepta
+        nuevas facultades del modelo.
+        """
         guarded = self.guard(message, session)
         if guarded:
             return guarded
@@ -152,6 +183,10 @@ class Resolver:
         return self._escalate("No puedo resolver esa solicitud dentro del alcance de consultas de pólizas y siniestros. No puedo confirmar información sin una consulta válida.", session, "Consulta fuera de alcance o interpretación no válida")
 
     def _policies(self, plan, message, session):
+        """Consulta pólizas de la sesión o de un código explícito autorizado. Devuelve
+        una lista con producto, vigencia y fuentes sin exigir que el cliente conozca
+        primero su póliza.
+        """
         identifier = self._literal_id(plan, "poliza_id", message, "POL")
         if session.get("rol") != "cliente" and not identifier:
             self.policy_sources = [NO_INVENT]
@@ -194,7 +229,10 @@ class Resolver:
         return "Encontré estas pólizas en los registros a los que tienes acceso:\n" + "\n".join(lines)
 
     def _history(self, session):
-        """Incluye todas las pólizas propias, también vencidas o anuladas."""
+        """Consulta los siniestros de todas las pólizas del cliente de la sesión.
+        Devuelve los registros disponibles con fuentes; un resultado vacío no
+        demuestra que nunca haya ocurrido un siniestro.
+        """
         result = self._sql(
             "SELECT s.siniestro_id,s.poliza_id,p.cliente_id,p.ramo,"
             "s.fecha_ocurrencia,s.estado,s.fecha_ultima_actualizacion "
@@ -241,6 +279,10 @@ class Resolver:
         return header + "\n" + "\n".join(lines) + "\nPuedes indicar el código de un siniestro para consultar sus detalles."
 
     def _claim(self, identifier, session):
+        """Consulta un siniestro autorizado y explica su estado y última actualización.
+        Si está rechazado, recupera el motivo y la cláusula; no interpreta un monto
+        reclamado como pago aprobado.
+        """
         result = self._sql("SELECT s.siniestro_id,s.poliza_id,p.cliente_id,p.ramo,s.estado,s.fecha_ultima_actualizacion,s.monto_reclamado_soles,s.monto_aprobado_soles,s.motivo_rechazo,s.clausula_referencia FROM siniestros s JOIN polizas p ON p.poliza_id=s.poliza_id WHERE s.siniestro_id=?", session, [identifier])
         if result.get("error") or result.get("truncado"):
             return self._escalate("No pude consultar el expediente de forma segura.", session)
@@ -277,6 +319,10 @@ class Resolver:
         return answer
 
     def _rejection(self, row, branch, session):
+        """Relaciona el motivo registrado con su cláusula documental. Devuelve una
+        explicación comprobada o deriva si falta evidencia, sin sustituirla por una
+        causa posible.
+        """
         reason, reference = row.get("motivo_rechazo"), row.get("clausula_referencia")
         if not isinstance(reason, str) or not reason.strip() or not isinstance(reference, str):
             return None
@@ -309,6 +355,10 @@ class Resolver:
         return clean(reason), clause, source
 
     def _aggregate(self, plan, message, session):
+        """Cuenta rechazos del ramo y trimestre declarados para un asesor permitido. Usa
+        última actualización como aproximación explícita porque no hay fecha de
+        rechazo en los CSV.
+        """
         if session.get("rol") != "asesor":
             self.policy_sources = [PRIVACY]
             return "Las estadísticas de toda la aseguradora requieren una sesión de asesor. Como cliente solo puedes consultar tus propios registros."
@@ -341,6 +391,10 @@ class Resolver:
                 + "Supuesto: fecha_ultima_actualizacion se utiliza como aproximación a la fecha de rechazo. No existe fecha_rechazo ni historial de estados; la última actualización del expediente no garantiza que ese día se haya decidido el rechazo.")
 
     def _interval(self, message):
+        """Convierte fechas o expresiones del mensaje en un intervalo respecto de la
+        fecha del ejercicio. No permite que una fecha declarada como hoy cambie el
+        reloj de referencia.
+        """
         text = normalize(message)
         # Relative event dates always use the trusted exercise clock. An ISO
         # date inside 'considera hoy ...' is not an event date or a new clock.
@@ -369,6 +423,10 @@ class Resolver:
         return next(iter(events)) if len(events) == 1 else "desconocido"
 
     def _coverage(self, plan, message, session):
+        """Relaciona póliza autorizada, producto, evento y vigencia. Devuelve un resumen
+        general o explica las condiciones del evento; si faltan datos, pide precisión
+        sin garantizar una indemnización.
+        """
         text = normalize(message)
         policy_id = self._literal_id(plan, "poliza_id", message, "POL")
         branches = list(supported_branches(message))
@@ -451,6 +509,10 @@ class Resolver:
         return base + " Necesito el evento concreto y su fecha para explicar la cobertura aplicable." + health_note + " La suma asegurada no equivale a una indemnización aprobada."
 
     def _coverage_summary(self, policy, base, session):
+        """Recupera las prestaciones del producto en sus artículos y devuelve un resumen
+        con fuentes. Distingue la descripción del seguro de aprobar cobertura para un
+        evento concreto.
+        """
         branch, product = policy["ramo"], policy["producto"]
         article, source = self._article(branch, "1", session)
         if not article:
@@ -505,6 +567,10 @@ class Resolver:
                 if len(row) == len(rows[0]) and row[0] and not re.fullmatch(r"[\s:-]+", row[0]) and row[index]]
 
     def _surgery(self, policy, interval, base, session):
+        """Contrasta la cirugía programada con la carencia y las fechas de la póliza.
+        Explica la condición contractual sin diagnosticar ni recomendar atención
+        médica.
+        """
         article, source = self._article("salud", "4", session)
         clause = self._clause(article, "4.2")
         exclusion = self._clause(article, "4.5")
@@ -535,6 +601,10 @@ class Resolver:
         return row[index] if row and index < len(row) else None
 
     def _vehicle(self, policy, event, interval, message, base, session):
+        """Comprueba la prestación vehicular en la columna del producto y sus
+        exclusiones. Devuelve condiciones, deducible y pasos documentados sin
+        prometer monto o fecha de pago.
+        """
         article, source = self._article("vehicular", "1", session)
         text = normalize(message)
         if event == "choque":

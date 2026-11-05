@@ -1,7 +1,7 @@
-"""Herramientas con identidad externa y acceso de solo lectura a datos originales.
-
-DataStore concentra SQL, carga y autorización de datos. Es el punto de sustitución
-por un adaptador BigQuery; el agente solamente utiliza Tools.call.
+"""Acceso controlado a los CSV, artículos y tickets locales. Agent y Resolver utilizan
+estas herramientas para obtener evidencia. La sesión se comprueba contra los
+registros de demostración; no hay autenticación real de una persona ni permisos
+tomados del mensaje.
 """
 
 from __future__ import annotations
@@ -29,9 +29,16 @@ def normalize(text: str) -> str:
 
 
 class DataStore:
-    """Una conexión efímera solo contiene las filas visibles para su sesión."""
+    """Carga los CSV originales y ofrece consultas de solo lectura sobre las filas
+    permitidas. Cada consulta crea una base temporal con los registros visibles;
+    nunca modifica los archivos originales.
+    """
 
     def __init__(self, root: Path, safe_model: bool = False):
+        """Recibe la carpeta del proyecto y carga tablas y encabezados. safe_model
+        permite bloquear además columnas narrativas cuando se necesita esa
+        restricción adicional.
+        """
         self.safe_model = safe_model
         self.tables = {}
         self.headers = {}
@@ -42,6 +49,10 @@ class DataStore:
                 self.tables[name] = list(reader)
 
     def validate_session(self, session: dict) -> None:
+        """Comprueba que el rol y el identificador existen en los CSV y falla si no
+        coinciden. No verifica contraseña, documento personal ni identidad real de
+        quien escribe.
+        """
         if not isinstance(session, dict):
             raise ValueError("La sesión autenticada es obligatoria.")
         role, user = session.get("rol"), session.get("usuario_id")
@@ -52,6 +63,10 @@ class DataStore:
             raise ValueError("Identidad de sesión no reconocida.")
 
     def visible_tables(self, session: dict) -> dict:
+        """Recibe la sesión y devuelve sus filas accesibles. Para un cliente relaciona
+        pólizas y siniestros por sus identificadores; el mensaje no amplía ese
+        acceso.
+        """
         self.validate_session(session)
         if session["rol"] == "asesor":
             return {table: self.tables[table] for table in TABLE_KEYS}
@@ -62,6 +77,10 @@ class DataStore:
         return {"clientes": clients, "polizas": policies, "siniestros": claims}
 
     def query(self, sql: str, parameters: list, session: dict) -> dict:
+        """Recibe SQL, parámetros simples y sesión; devuelve filas, fuentes y señal de
+        truncamiento. Filtra antes de consultar y aplica límites, funciones
+        permitidas y bloqueo de escrituras; la base temporal se cierra al terminar.
+        """
         visible = self.visible_tables(session)
         if not isinstance(sql, str) or not sql.strip() or len(sql) > 12000:
             raise ValueError("Proporciona una consulta SQL de lectura de hasta 12000 caracteres.")
@@ -71,8 +90,8 @@ class DataStore:
             raise ValueError("Los parámetros SQL deben ser valores simples.")
         used_tables = set()
         with closing(sqlite3.connect(":memory:")) as connection:
-            # Python 3.11+ exposes SQLite's native allocation limits. Python 3.10
-            # still has the SQL length, function allowlist and VM budget below.
+            # Python 3.11 permite limitar recursos de SQLite. En Python 3.10
+            # siguen vigentes los límites de texto, funciones y operaciones de abajo.
             if hasattr(connection, "setlimit"):
                 connection.setlimit(sqlite3.SQLITE_LIMIT_LENGTH, 1_000_000)
                 connection.setlimit(sqlite3.SQLITE_LIMIT_SQL_LENGTH, 12_000)
@@ -100,11 +119,11 @@ class DataStore:
             def authorize(action, first, second, database, trigger):
                 if action == sqlite3.SQLITE_SELECT:
                     return sqlite3.SQLITE_OK
-                # SQLite reports database=None for COUNT(*)'s empty-column read.
+                # COUNT(*) puede informar database=None al leer sin una columna concreta.
                 if action == sqlite3.SQLITE_READ and first in TABLE_KEYS and database in ("main", None):
-                    # Check original column provenance, not the SQL alias. This
-                    # also blocks CTEs, concatenation, predicates and functions
-                    # which try to launder untrusted narrative text to the LLM.
+                    # Se comprueba la columna de origen y no su alias SQL. Así también
+                    # se bloquean consultas, concatenaciones, filtros y funciones
+                    # que intenten extraer texto narrativo restringido con otro nombre.
                     if self.safe_model and first == "siniestros" and second in {"descripcion", "motivo_rechazo"}:
                         return sqlite3.SQLITE_DENY
                     used_tables.add(first)
@@ -114,7 +133,7 @@ class DataStore:
                 return sqlite3.SQLITE_DENY
 
             connection.set_authorizer(authorize)
-            # A row limit alone does not bound expensive joins or recursive queries.
+            # Limitar filas no basta para detener cruces costosos o consultas recursivas.
             budget = [0]
 
             def progress():
@@ -144,9 +163,15 @@ class DataStore:
 
 
 class Tools:
-    """Las herramientas no aceptan cambios de rol o identidad desde argumentos."""
+    """Expone tres herramientas: consultar datos, buscar artículos y registrar una
+    derivación. Devuelve resultados con fuentes o errores controlados, sin aprobar
+    pagos ni enviar mensajes externos.
+    """
 
     def __init__(self, root: Path | None = None, output_dir: Path | None = None, safe_model: bool = False):
+        """Recibe rutas y opciones de acceso a datos. Carga los artículos del paquete
+        para buscarlos sin alterar los condicionados ni enviarlos al modelo.
+        """
         self.root = Path(root) if root is not None else ROOT
         self.output_dir = Path(output_dir) if output_dir is not None else self.root / "salidas_offline"
         self.data = DataStore(self.root, safe_model=safe_model)
@@ -157,6 +182,10 @@ class Tools:
                 self.fragments.append({"documento": f"condicionados/{path.name}", "articulo": match[1], "texto": f"Artículo {match[1]}. {match[2]}\n{match[3].strip()}"})
 
     def call(self, name: str, arguments: dict, session: dict) -> dict:
+        """Recibe nombre, argumentos y sesión y ejecuta una de las tres herramientas
+        permitidas. Valida el contexto y devuelve los errores como datos para que el
+        agente los audite.
+        """
         try:
             self.data.validate_session(session)
             if not isinstance(arguments, dict):
@@ -179,7 +208,9 @@ class Tools:
             return {"error": "No se pudo registrar el ticket local. No se confirma el escalamiento.", "fuentes": []}
 
     def validate_session(self, session: dict) -> bool:
-        """Valida contexto externo sin inferir identidad desde el mensaje."""
+        """Devuelve si el rol y el ID están registrados para esta demostración. Es una
+        comprobación de sesión simulada, no un inicio de sesión de producción.
+        """
         try:
             self.data.validate_session(session)
             return True
@@ -187,6 +218,10 @@ class Tools:
             return False
 
     def search(self, query: str, branch: str | None = None) -> dict:
+        """Recibe texto, ramo opcional y sesión; devuelve artículos originales y sus
+        referencias. Prioriza documentos específicos y conserva la regla de
+        prevalencia sin inventar cláusulas.
+        """
         if not isinstance(query, str) or not query.strip() or len(query) > 4000:
             raise ValueError("La búsqueda requiere texto de hasta 4000 caracteres.")
         if branch not in (None, "general", "vehicular", "salud", "vida"):
@@ -234,6 +269,10 @@ class Tools:
         return {"fragmentos": fragments, "fuentes": [f'{f["documento"]}, Artículo {f["articulo"]}' for f in fragments], "datos_no_confiables": True}
 
     def escalate(self, reason: str, detail: str, session: dict) -> dict:
+        """Recibe motivo, detalle y sesión y escribe un ticket en un archivo local.
+        Devuelve el identificador y avisa que no se ha enviado a un asesor ni a un
+        servicio externo.
+        """
         if not isinstance(reason, str) or not reason.strip() or len(reason) > 1000:
             raise ValueError("El motivo debe contener entre 1 y 1000 caracteres.")
         if not isinstance(detail, str) or len(detail) > 4000:

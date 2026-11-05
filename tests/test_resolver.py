@@ -1,4 +1,6 @@
-"""Dominio determinista con pruebas de fronteras y fuentes mutadas."""
+"""Respuestas construidas desde datos y artículos, sin redacción libre del modelo.
+
+Muta un corpus temporal para comprobar fechas, exclusiones, privacidad y fuentes insuficientes."""
 
 import csv
 from datetime import date
@@ -13,6 +15,7 @@ from seguros.tools import ROOT, Tools
 
 
 class ResolverTests(unittest.TestCase):
+    """Reglas del seguro y citas verificables sobre un corpus aislado."""
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
@@ -24,6 +27,7 @@ class ResolverTests(unittest.TestCase):
         self.reset()
 
     def reset(self):
+        """Recrea el resolutor y sus herramientas sobre la copia temporal del corpus."""
         tools = Tools(root=self.root, output_dir=self.root / "salida")
 
         def call(name, args, session):
@@ -34,6 +38,7 @@ class ResolverTests(unittest.TestCase):
         self.resolver = Resolver(date(2026, 10, 15), call)
 
     def change(self, table, key, identifier, **values):
+        """Modifica un registro de prueba sin tocar los datos originales."""
         path = self.root / "datos" / (table + ".csv")
         with path.open(encoding="utf-8-sig", newline="") as stream:
             reader = csv.DictReader(stream)

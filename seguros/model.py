@@ -1,4 +1,7 @@
-"""Cliente HTTP pequeño para la API local de Ollama, sin dependencias externas."""
+"""Cliente HTTP de Ollama para el intérprete de preguntas. Planner envía mensajes y un
+esquema JSON a un servicio local; este módulo registra tiempos y contadores reales de
+la petición. No consulta los CSV ni evalúa la corrección de respuestas.
+"""
 
 import json
 import os
@@ -11,7 +14,10 @@ from urllib.request import Request, urlopen
 
 
 def load_env(path: Path) -> None:
-    """Carga valores simples sin ejecutar código ni sobreescribir el entorno."""
+    """Carga las opciones admitidas de un archivo de configuración sin ejecutar su
+    contenido. Respeta valores ya presentes en el entorno y no necesita una clave de
+    servicio pagado.
+    """
     if path.is_file():
         for line in path.read_text(encoding="utf-8-sig").splitlines():
             line = line.strip()
@@ -22,11 +28,20 @@ def load_env(path: Path) -> None:
 
 
 class ModelError(RuntimeError):
+    """Comunica un fallo de conexión, respuesta o formato del servicio local. El agente
+    lo registra y deriva; no lo oculta cambiando al modo offline.
+    """
     pass
 
 
 class OllamaModel:
+    """Recibe modelo, URL local y tiempo máximo de espera. Ofrece chat para obtener un
+    mensaje del modelo y conserva los eventos de consumo.
+    """
     def __init__(self, modelo=None, base_url=None, timeout=120):
+        """Selecciona modelo y dirección desde argumentos o entorno. Rechaza servidores
+        fuera de localhost y no inicia ni descarga Ollama.
+        """
         self.modelo = modelo or os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
         self.base_url = (base_url or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")).rstrip("/")
         parsed = urlparse(self.base_url)
@@ -37,6 +52,11 @@ class OllamaModel:
         self.telemetry_path = None
 
     def chat(self, messages, tools, format_schema=None):
+        """Recibe mensajes, herramientas y un esquema opcional; devuelve el mensaje de
+        Ollama. Registra la llamada aunque falle, con contadores observados cuando
+        existan. Un estado ok indica respuesta HTTP válida, no un juicio de
+        corrección del contenido.
+        """
         payload = {"model": self.modelo, "messages": messages, "tools": tools,
                    "stream": False, "keep_alive": "10m",
                    "options": {"temperature": 0, "num_predict": 600, "num_ctx": 8192}}

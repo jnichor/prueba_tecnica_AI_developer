@@ -1,4 +1,6 @@
-"""Mutaciones adversariales del evaluador; no ejecuta agentes ni inferencias."""
+"""Evaluación programada de respuestas correctas y alteradas deliberadamente.
+
+Comprueba hechos, fuentes y prioridades de archivos; incluye protección de la evidencia publicada."""
 
 import copy
 import io
@@ -10,8 +12,8 @@ from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
-import evaluar as cli
-import run_casos
+from scripts import evaluar as cli
+from scripts import run_casos
 from seguros.evaluation import (EvaluationInputError, evaluar, evaluar_detalle,
                                 evaluar_reporte, guardar_informe, incorporar_metricas_guardadas,
                                 validar_resultados)
@@ -21,6 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class EvaluationTests(unittest.TestCase):
+    """Respuestas alteradas para comprobar que el evaluador detecte el cambio."""
     @classmethod
     def setUpClass(cls):
         cls.baseline = json.loads((ROOT / "tests/fixtures/respuestas_offline.json").read_text(encoding="utf-8"))
@@ -31,6 +34,7 @@ class EvaluationTests(unittest.TestCase):
         self.root = Path(self.directory.name)
 
     def result(self, index, body=None):
+        """Duplica un caso y permite alterar su cuerpo conservando las citas originales."""
         result = copy.deepcopy(self.baseline[index - 1])
         if body is not None:
             result["respuesta"] = body + "\n\nFuentes: " + "; ".join(result["fuentes"])
@@ -188,7 +192,7 @@ class EvaluationTests(unittest.TestCase):
         manual.write_text("informe manual", encoding="utf-8")
         report = self.root / "automatico.md"
         data = self.root / "automatico.json"
-        with patch("sys.argv", ["evaluar.py", "--entrada", str(source), "--informe", str(report), "--json", str(data)]), redirect_stdout(io.StringIO()):
+        with patch("sys.argv", ["scripts/evaluar.py", "--entrada", str(source), "--informe", str(report), "--json", str(data)]), redirect_stdout(io.StringIO()):
             code = cli.main()
         self.assertEqual(code, 0)
         self.assertEqual(manual.read_text(encoding="utf-8"), "informe manual")
@@ -197,7 +201,7 @@ class EvaluationTests(unittest.TestCase):
     def test_cli_invalid_json_exits_two_without_report(self):
         source = self.root / "respuestas.json"
         source.write_text("[]", encoding="utf-8")
-        with patch("sys.argv", ["evaluar.py", "--entrada", str(source)]), redirect_stdout(io.StringIO()):
+        with patch("sys.argv", ["scripts/evaluar.py", "--entrada", str(source)]), redirect_stdout(io.StringIO()):
             self.assertEqual(cli.main(), 2)
         self.assertFalse((self.root / "evaluacion_automatica.md").exists())
 
@@ -210,7 +214,7 @@ class EvaluationTests(unittest.TestCase):
             if folder == "salidas_ollama":
                 batch[0]["estado"] = "error"
             (self.root / folder / "respuestas.json").write_text(json.dumps(batch), encoding="utf-8")
-        with patch.object(cli, "ROOT", self.root), patch("sys.argv", ["evaluar.py"]), redirect_stdout(io.StringIO()):
+        with patch.object(cli, "ROOT", self.root), patch("sys.argv", ["scripts/evaluar.py"]), redirect_stdout(io.StringIO()):
             self.assertEqual(cli.main(), 1)
         self.assertTrue((self.root / "salidas_ollama/evaluacion_automatica.json").exists())
         self.assertFalse((self.root / "salidas_offline/evaluacion_automatica.json").exists())
@@ -234,7 +238,7 @@ class EvaluationTests(unittest.TestCase):
             (self.root / folder / "respuestas.json").write_text(json.dumps(batch), encoding="utf-8")
         historical_report = self.root / "salidas_ollama/evaluacion_automatica.md"
         historical_report.write_text("Informe histórico conservado", encoding="utf-8")
-        with patch.object(cli, "ROOT", self.root), patch("sys.argv", ["evaluar.py"]), redirect_stdout(io.StringIO()):
+        with patch.object(cli, "ROOT", self.root), patch("sys.argv", ["scripts/evaluar.py"]), redirect_stdout(io.StringIO()):
             self.assertEqual(cli.main(), 0)
         self.assertTrue((self.root / "salidas_ollama_corregido/evaluacion_automatica.json").exists())
         self.assertEqual(historical_report.read_text(encoding="utf-8"), "Informe histórico conservado")
@@ -246,7 +250,7 @@ class EvaluationTests(unittest.TestCase):
         (published / "respuestas.json").write_bytes(original_results)
         original_report = b'Informe publicado: conservar\n'
         (published / "evaluacion_automatica.md").write_bytes(original_report)
-        with patch.object(cli, "ROOT", self.root), patch("sys.argv", ["evaluar.py"]), \
+        with patch.object(cli, "ROOT", self.root), patch("sys.argv", ["scripts/evaluar.py"]), \
                 patch.object(cli, "evaluar_reporte") as assess, redirect_stdout(io.StringIO()):
             self.assertEqual(cli.main(), 2)
         assess.assert_not_called()
@@ -269,7 +273,7 @@ class EvaluationTests(unittest.TestCase):
                 if failed:
                     batch[0]["respuesta"] = "El siniestro está pagado."
                 output = self.root / ("failed" if failed else "passed")
-                with patch("sys.argv", ["run_casos.py", "--modo", "offline", "--evaluar", "--salida", str(output)]), \
+                with patch("sys.argv", ["scripts/run_casos.py", "--modo", "offline", "--evaluar", "--salida", str(output)]), \
                         patch.object(run_casos, "load_env"), patch.object(run_casos, "ensure_ollama") as prepare, \
                         patch.object(run_casos, "Agent") as agent, redirect_stdout(io.StringIO()):
                     agent.return_value.respond.side_effect = batch

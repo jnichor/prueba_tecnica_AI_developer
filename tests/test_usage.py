@@ -1,4 +1,6 @@
-"""Contadores reales por consulta, sin estimaciones ni acumulación histórica."""
+"""Medición de tokens y tiempos por consulta a partir de contadores observados.
+
+Usa respuestas simuladas para verificar errores, contadores ausentes y separación entre consultas."""
 
 import json
 from pathlib import Path
@@ -13,6 +15,7 @@ from seguros.model import ModelError, OllamaModel
 
 
 class UsageTests(unittest.TestCase):
+    """Contadores completos, incompletos y fallidos sin estimar valores."""
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
@@ -21,6 +24,7 @@ class UsageTests(unittest.TestCase):
 
     @staticmethod
     def event(inputs, outputs, **extra):
+        """Construye un evento con los contadores presentes en cada escenario."""
         return {"estado": "ok", "prompt_eval_count": inputs, "eval_count": outputs,
                 "segundos": 0.25, **extra}
 

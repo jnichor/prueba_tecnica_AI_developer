@@ -1,4 +1,6 @@
-"""Consola con sesión fija: sin servicios, descargas ni llamadas reales al modelo."""
+"""Consola con identidad fija y consultas independientes.
+
+Simula mensajes, errores y formas de salida para comprobar el flujo sin servicios reales."""
 
 from contextlib import ExitStack, redirect_stdout
 import io
@@ -8,11 +10,12 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
-import consultar
+from scripts import consultar
 from seguros.bootstrap import SetupError
 
 
 class InteractiveTests(unittest.TestCase):
+    """Mensajes sucesivos, fallos y salida de una misma sesión de consola."""
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
@@ -20,18 +23,20 @@ class InteractiveTests(unittest.TestCase):
 
     @staticmethod
     def response(**extra):
+        """Crea una respuesta con métricas controladas para mostrar en la consola."""
         return {"respuesta": "En evaluación.\n\nFuentes: siniestros:S-5521", "estado": "ok",
                 "modo": "offline", "modelo": None, "tokens_entrada": 0,
                 "tokens_salida": 0, "tokens_total": 0, "tokens_medicion_completa": True,
                 "total_segundos": 0.01, **extra}
 
     def execute(self, entries, flags=None, answers=None, setup_error=None):
+        """Alimenta la consola y captura el resultado sin preparar servicios."""
         agent = Mock()
         agent.tools.validate_session.return_value = True
         agent.respond.side_effect = answers if answers is not None else lambda message, session: self.response()
         stdout = io.StringIO()
         flags = flags if flags is not None else ["--modo", "offline", "--interactivo"]
-        argv = ["consultar.py", "--rol", "cliente", "--usuario", "C001", "--salida", str(self.output), *flags]
+        argv = ["scripts/consultar.py", "--rol", "cliente", "--usuario", "C001", "--salida", str(self.output), *flags]
         with ExitStack() as stack:
             stack.enter_context(patch.dict(os.environ, {}, clear=True))
             stack.enter_context(patch("sys.argv", argv))

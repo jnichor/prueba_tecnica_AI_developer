@@ -1,4 +1,6 @@
-"""Reglas y ataques al plan con clasificador simulado; sin inferencias reales."""
+"""Cumplimiento de las ocho reglas ante consultas legítimas y ataques simulados.
+
+El clasificador se controla para comprobar que la sesión y los datos conservan su autoridad."""
 
 import csv
 import json
@@ -9,7 +11,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from evaluar import evaluar
+from scripts.evaluar import evaluar
 from seguros.agent import Agent
 
 
@@ -17,6 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def plan(intent="estado_siniestro", **changes):
+    """Construye una interpretación limitada para probar una regla concreta."""
     return {"intent": intent, "siniestro_id": None, "poliza_id": None, "ramo": None,
             "evento": "desconocido", "trimestre": None, "anio": None, **changes}
 
@@ -40,6 +43,7 @@ class PlannedModel:
 
 
 class BusinessRuleTests(unittest.TestCase):
+    """Consultas y ataques contra las reglas de negocio y la sesión."""
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
@@ -48,6 +52,7 @@ class BusinessRuleTests(unittest.TestCase):
         self.cases = json.loads((ROOT / "casos_prueba/casos_prueba.json").read_text(encoding="utf-8"))["casos"]
 
     def agent(self, value, root=ROOT):
+        """Inyecta el clasificador controlado en una instancia de prueba."""
         self.instances += 1
         instance = Agent(root=root, output_dir=self.output / str(self.instances), modo="ollama")
         instance.model = PlannedModel(value)
@@ -55,12 +60,14 @@ class BusinessRuleTests(unittest.TestCase):
 
     @staticmethod
     def claims_for(user_id, root=ROOT):
+        """Obtiene los identificadores propios para comprobar aislamiento."""
         with (root / "datos/polizas.csv").open(encoding="utf-8-sig", newline="") as stream:
             policies = {p["poliza_id"] for p in csv.DictReader(stream) if p["cliente_id"] == user_id}
         with (root / "datos/siniestros.csv").open(encoding="utf-8-sig", newline="") as stream:
             return {s["siniestro_id"] for s in csv.DictReader(stream) if s["poliza_id"] in policies}
 
     def assert_ticket(self, instance, result):
+        """Comprueba que la derivación exista en el registro local."""
         tickets = [h["resultado"] for h in result["herramientas"]
                    if h["nombre"] == "escalar_humano" and not h["resultado"].get("error")]
         self.assertTrue(tickets, result["respuesta"])

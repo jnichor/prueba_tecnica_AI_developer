@@ -1,4 +1,8 @@
-"""Ejecuta todos los casos por el mismo agente y conserva evidencia JSON."""
+"""Ejecuta los doce casos y conserva respuestas, fuentes y auditoría.
+
+Se inicia desde la raíz con ``python -m scripts.run_casos --evaluar``.
+Cada caso usa su propia sesión; la evaluación compara las respuestas con los datos.
+"""
 
 import argparse
 import json
@@ -11,6 +15,7 @@ from seguros.model import load_env
 
 
 def main():
+    """Prepara el modo elegido, atiende el lote y guarda su evaluación si se solicita."""
     load_env(ROOT / ".env")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--modo", choices=["offline", "ollama"], default=os.getenv("AGENT_MODE", "ollama"))
@@ -36,6 +41,7 @@ def main():
     agent = Agent(root=ROOT, output_dir=args.salida, modo=args.modo, modelo=modelo,
                   fecha_referencia=cases["fecha_referencia"])
     outputs = []
+    # La identidad procede del caso de prueba y se pasa como contexto independiente.
     for case in cases["casos"]:
         result = agent.respond(case["mensaje"], {"rol": case["rol"], "usuario_id": case["usuario_id"]})
         outputs.append({"id": case["id"], "consulta": case["mensaje"], **result})
@@ -46,6 +52,7 @@ def main():
     if args.modo == "offline":
         print("Baseline determinista sin modelo de IA. Esta ejecución no evalúa la calidad de un LLM.")
     if args.evaluar:
+        # Esta comprobación usa código; no pide a Qwen que califique su respuesta.
         from seguros.evaluation import evaluar_reporte, guardar_informe
         report = evaluar_reporte(outputs, root=ROOT)
         guardar_informe(report, args.salida / "respuestas.json")

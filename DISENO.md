@@ -1,7 +1,7 @@
 # Documento de diseño
 
 **Candidato:** Jesus Nicho Rosado  
-**Fecha:** 3 de noviembre de 2026
+**Fecha:** 4 de noviembre de 2026
 
 ## 1. Resumen de la solución
 
@@ -18,6 +18,8 @@ Asistente local en Python que recibe una consulta y una sesión confiable. Un mo
 Estos tres casos también recibieron una respuesta, con cero llamadas al modelo.
 
 ## 2. Arquitectura
+
+Los comandos están en `scripts/`, el motor del agente en `seguros/` y las pruebas en `tests/`. Los datos, condiciones y resultados conservan sus carpetas en la raíz.
 
 Por ejemplo, el cliente C001 pregunta: **«¿En qué estado está mi siniestro S-5521?»**
 

@@ -1,8 +1,9 @@
-"""Prepara evidencia revisable y un ZIP público por allowlist explícita.
+"""Selecciona evidencia revisable y crea un ZIP con archivos públicos permitidos.
 
 Primero ejecuta los doce casos y su evaluación. Este programa consume esa salida
 local; nunca consulta un modelo, descarga dependencias ni modifica los originales.
 Usa --empaquetar solo después de revisar README.md, DISENO.md y RESULTADOS.md.
+Se ejecuta desde la raíz con ``python -m scripts.preparar_entrega``.
 """
 
 import argparse
@@ -15,10 +16,10 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 SAMPLE_IDS = ("CP-03", "CP-06", "CP-07", "CP-08", "CP-12")
-ROOT_FILES = ("README.md", "DISENO.md", "RESULTADOS.md", ".env.example", ".gitignore",
-              "consultar.py", "run_casos.py", "evaluar.py", "iniciar_ollama.ps1")
+ROOT_FILES = ("README.md", "DISENO.md", "RESULTADOS.md", ".env.example", ".gitignore")
 PUBLIC_GROUPS = {"seguros": {".py"}, "tests": {".py"}, "datos": {".csv", ".md"},
-                 "condicionados": {".md"}, "casos_prueba": {".md", ".json"}}
+                 "condicionados": {".md"}, "casos_prueba": {".md", ".json"},
+                 "scripts": {".py", ".ps1"}}
 DELIVERY_FILES = ("respuestas.json", "muestra_interacciones.jsonl", "muestra_tickets.jsonl",
                   "evaluacion_automatica.md", "evaluacion_automatica.json",
                   "VERIFICACION.md", "fuentes_sha256.json")
@@ -76,6 +77,7 @@ def public_path(root, relative):
 
 
 def public_files(root):
+    """Enumera únicamente fuentes, comandos y evidencia seleccionada para publicar."""
     paths = list(ROOT_FILES)
     for directory, suffixes in PUBLIC_GROUPS.items():
         paths.extend(path.relative_to(root).as_posix() for path in sorted((root / directory).iterdir())
@@ -84,11 +86,11 @@ def public_files(root):
     if (root / "salidas/CONSULTAS_HISTORIAL.md").is_file():
         paths.append("salidas/CONSULTAS_HISTORIAL.md")
     paths.append("tests/fixtures/respuestas_offline.json")
-    paths.append("scripts/preparar_entrega.py")
     return sorted(set(paths))
 
 
 def prepare(root, source):
+    """Copia un lote revisado y sus muestras sin modificar los archivos originales."""
     destination = root / "salidas"
     required = ("respuestas.json", "interactions.jsonl", "tickets.jsonl",
                 "evaluacion_automatica.md", "evaluacion_automatica.json")
@@ -102,6 +104,7 @@ def prepare(root, source):
         raise ValueError("Las respuestas no contienen exactamente los casos del paquete en su orden.")
     if not all(row.get("tokens_medicion_completa") is True for row in responses):
         raise ValueError("La evidencia seleccionada tiene mediciones incompletas.")
+    # Los resúmenes deben coincidir con los contadores reales de la misma ejecución.
     verification = read_json(source / "verificacion.json") if "verificacion.json" in snapshots else None
     automatic = read_json(source / "evaluacion_automatica.json")
     if not automatic.get("todos_cumplen") or (verification is not None and verification.get("casos_manual_correctos") != len(cases)):
@@ -120,6 +123,7 @@ def prepare(root, source):
                           "llm_segundos", "tokens_entrada", "tokens_salida", "tokens_total",
                           "tokens_medicion_completa", "tokens_contabilizados", "total_segundos")
     sample = []
+    # Cada muestra se vincula por consulta, identidad y respuesta, además del caso.
     for identifier in SAMPLE_IDS:
         response = next(row for row in responses if row["id"] == identifier)
         case = next(row for row in cases if row["id"] == identifier)
@@ -189,6 +193,7 @@ def prepare(root, source):
 
 
 def package(root):
+    """Genera el ZIP y comprueba sus bytes contra el manifiesto antes de entregarlo."""
     entries = []
     contents = {}
     for relative in public_files(root):
@@ -212,6 +217,7 @@ def package(root):
 
 
 def main():
+    """Prepara evidencia local y, si se pide, empaqueta solo las rutas permitidas."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--origen", type=Path, default=Path("salidas_ollama_corregido"))
     parser.add_argument("--empaquetar", action="store_true", help="Incluye los documentos finales y genera ZIP y manifiesto local.")

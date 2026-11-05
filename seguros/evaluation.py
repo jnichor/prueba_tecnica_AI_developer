@@ -1,7 +1,7 @@
-"""Comprobaciones acotadas del paquete: evidencia independiente y reglas revisables.
-
-No es un juez semántico universal. Un acierto significa que pasó estas reglas,
-no una certificación de seguridad ni una sustitución de la revisión humana.
+"""Evalúa por código las doce respuestas del ejercicio. Los comandos de evaluación y
+casos comparan las salidas con CSV, condicionados y trazas originales mediante
+criterios explícitos. No usa Qwen para calificar ni modifica respuestas o
+expedientes; escribe un informe separado.
 """
 
 import calendar
@@ -31,6 +31,9 @@ SYSTEM_POLICIES = frozenset({
 
 
 class EvaluationInputError(ValueError):
+    """Indica que los resultados no tienen el formato necesario para evaluarlos. Es
+    distinto de una respuesta válida en formato pero incorrecta en sus hechos.
+    """
     pass
 
 
@@ -40,6 +43,9 @@ def normalizar(text):
 
 
 def _validate_one(result):
+    """Comprueba tipos y estructura de un resultado y sus herramientas. Rechaza datos
+    malformados antes de comparar hechos o reconstruir métricas.
+    """
     if not isinstance(result, dict):
         raise EvaluationInputError("Cada caso debe ser un objeto JSON.")
     for key, kind in (("id", str), ("respuesta", str), ("estado", str),
@@ -94,6 +100,9 @@ def _validate_one(result):
 
 
 def validar_resultados(results):
+    """Recibe una lista y exige los doce identificadores sin duplicados ni faltantes.
+    Devuelve la lista validada o lanza EvaluationInputError.
+    """
     if not isinstance(results, list):
         raise EvaluationInputError("La entrada debe ser una lista de los 12 casos.")
     for result in results:
@@ -108,6 +117,9 @@ def validar_resultados(results):
 
 
 def _oracle(root):
+    """Lee datos, artículos y casos del paquete para formar las referencias de
+    comparación. No obtiene los hechos esperados de la propia respuesta del agente.
+    """
     tables = {}
     for table, key in (("clientes", "cliente_id"), ("polizas", "poliza_id"), ("siniestros", "siniestro_id")):
         with (root / "datos" / f"{table}.csv").open(encoding="utf-8-sig", newline="") as stream:
@@ -135,6 +147,9 @@ def _owner(table, identifier, oracle):
 
 
 def _source_kind(source, oracle):
+    """Identifica registros, artículos, tickets y políticas reconocidas. Devuelve su
+    tipo o None; una política no demuestra un hecho de un expediente.
+    """
     record = re.fullmatch(r"(clientes|polizas|siniestros):([A-Z0-9-]+)", source)
     if record:
         return ("registro", record[1], record[2]) if record[2] in oracle["tablas"][record[1]] else None
@@ -152,6 +167,10 @@ def _source_kind(source, oracle):
 
 
 def _evidence(result, oracle):
+    """Contrasta las citas del resultado con las fuentes reales de sus herramientas y
+    del paquete. Devuelve referencias verificadas y referencias sin respaldo por
+    separado.
+    """
     produced = set()
     for tool in result["herramientas"]:
         if not tool["resultado"].get("error"):
@@ -185,6 +204,10 @@ def _date_mentioned(text, iso):
 
 
 def _assess(result, oracle):
+    """Compara el cuerpo de una respuesta con los hechos y criterios de su caso.
+    Devuelve clasificación, razones y fuentes; ejecutar con estado ok no basta para
+    aprobar.
+    """
     suffix = "\n\nFuentes: " + "; ".join(result["fuentes"])
     body = result["respuesta"][:-len(suffix)] if result["fuentes"] and result["respuesta"].endswith(suffix) else result["respuesta"]
     text = normalizar(body)
@@ -372,12 +395,17 @@ def _assess(result, oracle):
 
 
 def evaluar_detalle(result, root=None):
+    """Valida un resultado y devuelve su evaluación detallada usando las fuentes del
+    proyecto. No hace llamadas al modelo ni cambia el resultado original.
+    """
     _validate_one(result)
     return _assess(result, _oracle(Path(root).resolve() if root else ROOT))
 
 
 def evaluar(result):
-    """Compatibilidad con el evaluador original: etiqueta y comentario."""
+    """Mantiene la interfaz sencilla de etiqueta y comentario. Si la entrada no es
+    válida, devuelve No con la explicación del problema.
+    """
     try:
         detail = evaluar_detalle(result)
         return detail["evaluacion"], detail["comentario"]
@@ -386,6 +414,10 @@ def evaluar(result):
 
 
 def evaluar_reporte(results, root=None):
+    """Recibe las doce salidas y devuelve resumen y criterios por caso. Las
+    comprobaciones son acotadas al ejercicio: no certifican comprensión o seguridad
+    para cualquier consulta.
+    """
     validar_resultados(results)
     oracle = _oracle(Path(root).resolve() if root else ROOT)
     details = [_assess(result, oracle) for result in sorted(results, key=lambda result: result["id"])]
@@ -395,7 +427,10 @@ def evaluar_reporte(results, root=None):
 
 
 def incorporar_metricas_guardadas(report, input_path):
-    """Enriquece lotes antiguos solo si hashes y contadores de cada llamada cuadran."""
+    """Añade métricas históricas solo cuando sus archivos, hashes y contadores
+    concuerdan. No repite inferencias ni estima valores ausentes; devuelve el informe
+    con los datos comprobados.
+    """
     source = Path(input_path).resolve()
     artifact = source.parent / "tokens_por_consulta.json"
     if not artifact.is_file():
@@ -465,6 +500,9 @@ def _cell(value):
 
 
 def guardar_informe(report, input_path, markdown_path=None, json_path=None):
+    """Recibe el informe y las rutas de entrada y salida. Escribe Markdown y JSON
+    separados y devuelve ambas rutas; impide sobrescribir la entrada.
+    """
     input_path = Path(input_path).resolve()
     markdown_path = Path(markdown_path) if markdown_path else input_path.parent / "evaluacion_automatica.md"
     json_path = Path(json_path) if json_path else input_path.parent / "evaluacion_automatica.json"

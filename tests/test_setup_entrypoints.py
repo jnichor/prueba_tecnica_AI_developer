@@ -1,8 +1,6 @@
-"""El arranque prepara IA antes de consultar; offline evita preparación y red.
+"""Arranque de los comandos y elección de sus carpetas de trabajo.
 
-Las CLI se ejecutan con sesión, archivos y resultados de preparación simulados.
-No se descargan binarios ni modelos y no se inicia ningún proceso real.
-"""
+Los servicios y el agente se simulan; se comprueba que offline no prepare IA ni sobrescriba salidas publicadas."""
 
 from contextlib import ExitStack, redirect_stderr, redirect_stdout
 import io
@@ -13,13 +11,14 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
-import consultar
-import run_casos
+from scripts import consultar
+from scripts import run_casos
 from seguros.bootstrap import SetupError
 from seguros.model import OllamaModel
 
 
 class SetupEntrypointTests(unittest.TestCase):
+    """Orden de preparación y ejecucion de los comandos del proyecto."""
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
@@ -31,6 +30,7 @@ class SetupEntrypointTests(unittest.TestCase):
             encoding="utf-8")
 
     def ejecutar(self, modulo, argumentos, entorno=None, error=None):
+        """Ejecuta un comando con preparación y agente simulados, capturando su salida."""
         eventos = []
         creado = {}
 
@@ -63,7 +63,7 @@ class SetupEntrypointTests(unittest.TestCase):
         salida = io.StringIO()
         with ExitStack() as stack:
             stack.enter_context(patch.dict(os.environ, entorno or {}, clear=True))
-            stack.enter_context(patch("sys.argv", [modulo.__name__ + ".py", *argumentos]))
+            stack.enter_context(patch("sys.argv", [modulo.__file__, *argumentos]))
             stack.enter_context(patch.object(modulo, "ROOT", self.root))
             stack.enter_context(patch.object(modulo, "load_env"))
             preparar_mock = stack.enter_context(patch.object(modulo, "ensure_ollama", side_effect=preparar))

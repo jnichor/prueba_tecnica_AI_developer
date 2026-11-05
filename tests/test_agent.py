@@ -1,4 +1,6 @@
-"""Verificación funcional independiente de la red y de un modelo instalado."""
+"""Comportamiento del agente frente a los casos de prueba y a fallos del modelo.
+
+Comprueba respuestas, permisos y auditoría con datos conocidos, sin un servidor de IA."""
 
 import csv
 import json
@@ -9,7 +11,7 @@ import unicodedata
 import unittest
 from unittest.mock import Mock
 
-from evaluar import evaluar
+from scripts.evaluar import evaluar
 from seguros.agent import Agent
 from seguros.model import ModelError
 
@@ -18,11 +20,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def normalizar(texto):
+    """Compara respuestas sin depender de tildes o mayúsculas."""
     return "".join(c for c in unicodedata.normalize("NFD", texto.lower())
                    if unicodedata.category(c) != "Mn")
 
 
 class AgentTests(unittest.TestCase):
+    """Casos funcionales y de privacidad con el flujo determinista."""
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
@@ -32,6 +36,7 @@ class AgentTests(unittest.TestCase):
             encoding="utf-8"))["casos"]
 
     def responder(self, caso):
+        """Envía un caso con su sesión original para comprobar la respuesta en cada prueba."""
         return self.agent.respond(caso["mensaje"], {
             "rol": caso["rol"], "usuario_id": caso["usuario_id"]})
 
@@ -202,6 +207,7 @@ class AgentTests(unittest.TestCase):
 
 
 class ModelCircuitTests(unittest.TestCase):
+    """Errores del intérprete simulado y su registro sin inventar respuestas."""
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
@@ -212,12 +218,14 @@ class ModelCircuitTests(unittest.TestCase):
 
     @staticmethod
     def plan(**cambios):
+        """Construye un plan controlado para probar el circuito del modelo."""
         plan = {"intent": "estado_siniestro", "siniestro_id": "S-5521", "poliza_id": None,
                 "ramo": None, "evento": "desconocido", "trimestre": None, "anio": None}
         return {**plan, **cambios}
 
     @staticmethod
     def mensaje(plan):
+        """Representa el mensaje JSON que devuelve el modelo simulado."""
         return {"role": "assistant", "content": json.dumps(plan, ensure_ascii=False)}
 
     def test_modelo_usa_herramienta_y_solo_fuentes_recuperadas(self):

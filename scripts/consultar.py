@@ -1,4 +1,8 @@
-"""Consola local: rol e identidad simulan una sesión validada, sin historial."""
+"""Atiende una consulta o abre una consola con una sesión de demostración.
+
+Se ejecuta desde la raíz con ``python -m scripts.consultar`` y los datos de sesión.
+La identidad se conserva entre preguntas, pero cada consulta es independiente.
+"""
 
 import argparse
 import os
@@ -27,6 +31,7 @@ def show_result(result):
 
 
 def main():
+    """Valida la sesión y muestra respuestas con fuentes, tokens y tiempo de consulta."""
     load_env(ROOT / ".env")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--rol", choices=["cliente", "asesor"], required=True)
@@ -46,6 +51,7 @@ def main():
         except SetupError as exc:
             print(f"Preparación falló: {exc}")
             return 1
+    # El mensaje puede pedir algo, pero no puede cambiar esta identidad.
     session = {"rol": args.rol, "usuario_id": args.usuario}
     try:
         agent = Agent(root=ROOT, output_dir=args.salida or ROOT / ("salidas_ollama_corregido" if args.modo == "ollama" else "salidas_offline"),

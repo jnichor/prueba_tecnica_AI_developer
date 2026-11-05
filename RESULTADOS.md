@@ -3,14 +3,18 @@
 **Candidato:** Jesus Nicho Rosado  
 **Modelo de IA:** qwen2.5:7b mediante Ollama 0.40.13; interpreta intención y entidades, y el código verifica y construye la respuesta.  
 **Fecha de referencia:** 15 de octubre de 2026.  
-**Última ejecución real:** 03/11/2026, 13:49:25–13:49:57, Lima.  
-**Salida entregada:** [salidas/respuestas.json](salidas/respuestas.json), copia íntegra del lote de validación del código actual.
+**Ejecución real documentada en estas respuestas:** 03/11/2026, 13:49:25–13:49:57, Lima.  
+**Salida entregada:** [salidas/respuestas.json](salidas/respuestas.json), copia íntegra de ese lote de validación.
 
-**Comando utilizado:**
+**Para reproducirlo con la organización actual**, desde la raíz del proyecto y guardando una ejecución nueva:
 
 ```powershell
-python run_casos.py --modo ollama --modelo qwen2.5:7b --salida salidas_publicacion_verificada --evaluar
+python -m scripts.run_casos --modo ollama --modelo qwen2.5:7b --salida salidas_reproduccion --evaluar
 ```
+
+**Registro histórico:** la ejecución del 3 de noviembre usó `python run_casos.py --modo ollama --modelo qwen2.5:7b --salida salidas_publicacion_verificada --evaluar`, cuando ese archivo estaba en la raíz. Esa ruta antigua ya no es el comando vigente. El cambio de ubicación no modifica las respuestas ni las mediciones históricas que se muestran a continuación.
+
+**Revalidación del 4 de noviembre:** los nuevos comandos por módulos superaron 222 pruebas y otra ejecución real de los 12 casos, con arranque automático de Ollama. Las respuestas coincidieron con las publicadas salvo el identificador nuevo del ticket. Esa comprobación adicional no reemplaza el lote ni las métricas del 3 de noviembre detallados en este documento.
 
 ## Resumen
 

@@ -2,7 +2,15 @@
 
 Prueba técnica desarrollada por **Jesus Nicho Rosado**. La solución consulta datos y condiciones de seguros, explica sus fuentes y deriva casos a atención humana. Usa Python y un modelo local mediante Ollama.
 
-La validación del 3 de noviembre de 2026 documenta 12 casos correctos con `qwen2.5:7b` y 216 pruebas aprobadas. Tres casos se resolvieron con controles previos sin IA. Además se verificaron consultas naturales de historial, póliza y cobertura en la consola. Los datos son ficticios.
+La validación del 4 de noviembre de 2026 documenta 12 casos correctos con `qwen2.5:7b` y 222 pruebas aprobadas. Tres casos se resolvieron con controles previos sin IA. Además se verificaron consultas naturales de historial, póliza y cobertura en la consola. Los datos son ficticios.
+
+## Cómo está organizado
+
+- [scripts/](scripts/): comandos para ejecutar consultas, casos y evaluaciones.
+- [seguros/](seguros/): motor que interpreta preguntas, aplica permisos y consulta datos y condiciones.
+- [tests/](tests/): pruebas que comprueban el funcionamiento y los controles de seguridad.
+
+Para estudiarlo, sigue este recorrido: [ejecución de casos](scripts/run_casos.py) → [agente](seguros/agent.py) → [pruebas del agente](tests/test_agent.py). Los comentarios explican qué hace cada parte.
 
 ## Inicio rápido con IA
 
@@ -11,15 +19,17 @@ Requisitos: **Python 3.10 o superior**, **Git** y **Windows x64** para la prepar
 ~~~powershell
 git clone https://github.com/jnichor/prueba_tecnica_AI_developer.git
 cd prueba_tecnica_AI_developer
-python run_casos.py --evaluar
+python -m scripts.run_casos --evaluar
 ~~~
 
-- `python run_casos.py` ejecuta los 12 casos y guarda las respuestas del agente.
-- `python run_casos.py --evaluar` hace lo mismo y, después, evalúa esas respuestas mediante código, comparándolas con los datos y las condiciones.
+Ejecuta los comandos Python desde la raíz del proyecto: `-m` permite abrir el programa que está dentro de `scripts/`.
+
+- `python -m scripts.run_casos` ejecuta los 12 casos y guarda las respuestas del agente.
+- `python -m scripts.run_casos --evaluar` hace lo mismo y, después, evalúa esas respuestas mediante código, comparándolas con los datos y las condiciones.
 
 El último comando prepara Ollama y el modelo, ejecuta los **12 casos** y crea en tu computadora la carpeta `salidas_ollama_corregido/`, donde guarda las respuestas y la evaluación. Los resultados incluidos en este repositorio están en [salidas/](salidas/). Esta carpeta contiene salidas y muestras; el proyecto completo incluye también el código y la documentación. No necesitas instalar paquetes Python ni configurar una clave API. La IA se ejecuta en tu computadora.
 
-**Primera vez:** necesita Internet y descarga varios GB; puede superar cinco minutos según la conexión y el equipo. **Después:** reutiliza lo instalado. Desde la carpeta del proyecto, solo ejecuta `python run_casos.py --evaluar`.
+**Primera vez:** necesita Internet y descarga varios GB; puede superar cinco minutos según la conexión y el equipo. **Después:** reutiliza lo instalado. Desde la carpeta del proyecto, solo ejecuta `python -m scripts.run_casos --evaluar`.
 
 <details>
 <summary>Preparar la IA con anticipación (opcional)</summary>
@@ -27,10 +37,10 @@ El último comando prepara Ollama y el modelo, ejecuta los **12 casos** y crea e
 Este paso sirve para descargar y preparar Ollama y el modelo antes de probar los casos. Por ejemplo, puedes hacer la descarga hoy y ejecutar las 12 consultas después.
 
 ~~~powershell
-python run_casos.py --solo-preparar
+python -m scripts.run_casos --solo-preparar
 ~~~
 
-No necesitas hacer este paso por separado: `python run_casos.py --evaluar` prepara la IA y luego ejecuta los 12 casos.
+No necesitas hacer este paso por separado: `python -m scripts.run_casos --evaluar` prepara la IA y luego ejecuta los 12 casos.
 
 En Windows x64 se usa una distribución portátil oficial verificada y se guarda con el modelo en `.runtime/`, sin instalar un servicio del sistema. La primera descarga es de aproximadamente 6.3 GB y requiere espacio adicional para extraerla.
 
@@ -47,7 +57,7 @@ La configuración opcional está en [.env.example](.env.example). `--modelo` pre
 Para enviar una pregunta con una sesión de demostración:
 
 ~~~powershell
-python consultar.py --rol cliente --usuario C001 --mensaje "¿En qué estado está mi siniestro S-5521?"
+python -m scripts.consultar --rol cliente --usuario C001 --mensaje "¿En qué estado está mi siniestro S-5521?"
 ~~~
 
 ### Consola interactiva
@@ -55,7 +65,7 @@ python consultar.py --rol cliente --usuario C001 --mensaje "¿En qué estado est
 Para escribir varias preguntas manteniendo la misma identidad:
 
 ~~~powershell
-python consultar.py --rol cliente --usuario C001 --interactivo
+python -m scripts.consultar --rol cliente --usuario C001 --interactivo
 ~~~
 
 Escribe `salir` o `exit` para terminar. La sesión conserva su identidad, pero las consultas son independientes: no hay memoria de conversación.
@@ -67,7 +77,7 @@ También puedes preguntar **«¿he tenido algun siniestro?»** o **«Yo he tenid
 Para atender automáticamente todas las consultas de `casos_prueba/casos_prueba.json`, sin escribir los doce mensajes a mano:
 
 ~~~powershell
-python run_casos.py --evaluar
+python -m scripts.run_casos --evaluar
 ~~~
 
 El programa las procesa **una tras otra**. Cada caso utiliza su propio rol e identificador como sesión simulada: no se ejecutan todos con el mismo usuario.
@@ -95,7 +105,7 @@ Se opta por una evaluación por código porque comprueba hechos concretos contra
 Ejecuta el flujo normal completo con un comando:
 
 ~~~powershell
-python run_casos.py --evaluar
+python -m scripts.run_casos --evaluar
 ~~~
 
 El programa:
@@ -110,7 +120,7 @@ Las comprobaciones buscan contradicciones, promesas indebidas y fuentes sin resp
 Para revisar respuestas guardadas sin volver a ejecutar el agente:
 
 ~~~powershell
-python evaluar.py --entrada salidas_ollama_corregido/respuestas.json
+python -m scripts.evaluar --entrada salidas_ollama_corregido/respuestas.json
 ~~~
 
 También se revisa que:
@@ -147,7 +157,7 @@ Si preguntas por **S-5521** y Qwen interpreta **S-5522**, el programa detecta qu
 
 No se calcula un costo monetario: Ollama local no cobra una tarifa por token.
 
-El lote actual conservado en la entrega usó **5349 tokens de entrada + 513 de salida = 5862 en total** para el agente. Las cuatro consultas adicionales de consola usaron 2537 tokens y se contabilizan por separado.
+El lote del 3 de noviembre conservado en `salidas/` usó **5349 tokens de entrada + 513 de salida = 5862 en total** para el agente. Sus cuatro consultas adicionales de consola usaron 2537 tokens y se contabilizan por separado.
 
 Las pruebas del programa verifican sus funciones y controles. La evaluación de la entrega revisa las **12 respuestas finales**, también con asistencia de Codex: las doce cumplieron sus comprobaciones. Nueve consultas llamaron a Qwen; tres se resolvieron antes mediante controles de privacidad, recomendaciones de inversión y cambios no permitidos.
 
@@ -187,6 +197,8 @@ La revisión de contenido se realizó **con asistencia de Codex**, contrastando 
 ~~~powershell
 python -m unittest discover -s tests
 ~~~
+
+Los archivos de `salidas/` conservan el lote documentado del 3 de noviembre; la organización actual se volvió a comprobar el 4 de noviembre.
 
 ## Uso de asistentes de IA
 

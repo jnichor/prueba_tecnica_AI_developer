@@ -1,4 +1,8 @@
-"""IA limitada a intención y entidades: nunca redacta ni accede a datos de seguros."""
+"""Interpreta qué pide el usuario sin consultar expedientes. Agent llama a Planner para
+obtener siete campos JSON; el código verifica que los identificadores y demás datos
+estén respaldados por la pregunta. El modo offline ofrece una interpretación
+programada explícita para pruebas.
+"""
 
 import json
 import re
@@ -23,7 +27,9 @@ STRATEGY = "interpretacion_estructurada_y_respuesta_verificada"
 
 
 class PlanError(ValueError):
-    """No publicar ni ejecutar una interpretación que inventa entidades o campos."""
+    """Indica que el plan no respeta el formato o inventa información. El agente lo
+    maneja sin ejecutar ese plan ni publicar su contenido como respuesta.
+    """
 
 
 def normalize(text):
@@ -32,6 +38,9 @@ def normalize(text):
 
 
 def literal_ids(message, prefix):
+    """Extrae códigos completos presentes en el mensaje. Los límites evitan aceptar un
+    código corto que solo aparece dentro de otro identificador.
+    """
     return re.findall(r"(?<![A-Za-z0-9_-])" + prefix + r"-\d+(?![A-Za-z0-9_-])", message, flags=re.I)
 
 
@@ -79,6 +88,9 @@ def literal_years(message):
 
 
 def requests_third_party_data(message):
+    """Detecta solicitudes de información de otra persona. No convierte por sí sola a un
+    familiar que participó en un accidente en titular de la consulta.
+    """
     text = normalize(message)
     relatives = r"(?:esposo|esposa|pareja|hermano|hermana|padre|madre|hijo|hija)"
     before = re.search(rf"(?:que seguros|que polizas|que siniestros|que reclamos|historial de|datos de|pagos de|seguro de vida|polizas de|siniestros de|reclamos de).*\b(?:mi|su)\s+{relatives}\b", text)
@@ -87,7 +99,10 @@ def requests_third_party_data(message):
 
 
 def self_claim_history_request(message):
-    """Historia propia inequívoca, no una mezcla de titulares ni un expediente concreto."""
+    """Reconoce una petición inequívoca de siniestros propios sin código concreto.
+    Descarta mezclas de titulares para que el historial dependa de la sesión y no de
+    una identidad escrita.
+    """
     text = normalize(message)
     claim = r"(?:siniestros?|reclamos?|reclamacion(?:es)?)"
     if literal_ids(message, "S") or not re.search(rf"\b{claim}\b", text):
@@ -105,7 +120,9 @@ def self_claim_history_request(message):
 
 
 def own_policy_request(message):
-    """Pedir las pólizas propias no requiere conocer previamente su identificador."""
+    """Reconoce que se pide identificar las pólizas propias sin conocer su código.
+    Separa esa solicitud de cobertura, recomendaciones, cambios y datos de terceros.
+    """
     text = normalize(message)
     if (literal_ids(message, "S") or requests_third_party_data(message)
             or re.search(r"\b(?:recomiend\w*|recomendacion\w*|aconsej\w*|conviene)\b", text)
@@ -119,7 +136,9 @@ def own_policy_request(message):
 
 
 def general_coverage_request(message):
-    """Una cobertura general con ramo explícito no necesita inventar un evento."""
+    """Reconoce una pregunta general de cobertura con un ramo explícito y sin evento
+    identificado. Permite resumir el producto sin inventar un choque, robo o cirugía.
+    """
     text = normalize(message)
     return bool(len(supported_branches(message)) == 1
                 and supported_events(message) == {"desconocido"}
@@ -130,7 +149,9 @@ def general_coverage_request(message):
 
 
 def schema_for_message(message):
-    """El decodificador solo puede elegir entidades realmente presentes."""
+    """Recibe la pregunta y devuelve el esquema JSON permitido para esa consulta. Limita
+    los valores a las entidades presentes en el texto antes de llamar al modelo.
+    """
     schema = json.loads(json.dumps(PLAN_SCHEMA))
     properties = schema["properties"]
     for key, prefix in (("siniestro_id", "S"), ("poliza_id", "POL")):
@@ -151,6 +172,10 @@ def schema_for_message(message):
 
 
 def validate_plan(plan, message):
+    """Recibe el JSON del modelo y la pregunta; devuelve un plan validado o lanza
+    PlanError. Rechaza campos extra, códigos inventados y periodos sin respaldo. El
+    plan no contiene identidad, SQL ni una respuesta libre.
+    """
     if not isinstance(plan, dict) or set(plan) != set(PLAN_SCHEMA["required"]):
         raise PlanError("La interpretación contiene campos ausentes o no permitidos.")
     if plan["intent"] not in INTENTS:
@@ -188,6 +213,9 @@ def validate_plan(plan, message):
 
 
 def _unique_object(pairs):
+    """Construye un objeto JSON rechazando claves repetidas. Evita interpretaciones
+    ambiguas donde un mismo campo tenga dos valores.
+    """
     result = {}
     for key, value in pairs:
         if key in result:
@@ -197,7 +225,10 @@ def _unique_object(pairs):
 
 
 def offline_plan(message):
-    """Intérprete explícitamente determinista; comparte el mismo resolutor seguro."""
+    """Recibe una pregunta y devuelve un plan mediante reglas programadas. Es un modo
+    elegido explícitamente; nunca sustituye en secreto una llamada a Ollama que
+    falló.
+    """
     text = normalize(message)
     plan = {"intent": "aclaracion", "siniestro_id": None, "poliza_id": None,
             "ramo": None, "evento": "desconocido", "trimestre": None, "anio": None}
@@ -234,12 +265,19 @@ def offline_plan(message):
 
 
 class Planner:
+    """Solicita a Qwen únicamente intención y datos limitados. El modelo recibe la
+    pregunta y contexto mínimo de sesión, sin expedientes, artículos ni herramientas.
+    """
     def __init__(self, model, today=None):
         self.model = model
         self.today = today or date(2026, 10, 15)
         self.attempts = 0
 
     def interpret(self, message, session):
+        """Recibe pregunta y sesión y devuelve un plan validado. Permite una sola
+        corrección automática de formato o validación; los errores de conexión se
+        propagan. Ninguna respuesta libre del modelo se entrega al usuario.
+        """
         system = (
             "Clasifica una consulta de seguros. SOLO devuelve el objeto JSON del esquema, sin responder al usuario. "
             "No redactes explicaciones, no consultes herramientas, no generes SQL ni roles ni aprobaciones. "

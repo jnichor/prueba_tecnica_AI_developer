@@ -1,4 +1,8 @@
-"""IA interpreta intención; código autorizado recupera y explica evidencia."""
+"""Coordina una consulta de principio a fin. Los comandos de casos y consola llaman a
+Agent: comprueba la sesión de demostración, aplica controles, interpreta la pregunta
+y pide al resolutor una respuesta con fuentes. También registra herramientas, tiempos
+y consumo.
+"""
 
 import json
 import time
@@ -15,8 +19,14 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class Agent:
+    """Recibe las rutas del proyecto y el modo de ejecución. Reúne modelo, herramientas
+    y reglas; no decide indemnizaciones ni cambia pólizas o siniestros.
+    """
     def __init__(self, root=None, output_dir=None, modo="ollama", modelo=None,
                  fecha_referencia="2026-10-15"):
+        """Configura fecha, rutas y dependencias para las consultas. En modo Ollama
+        prepara el cliente HTTP; aquí no descarga ni inicia el servicio.
+        """
         self.root = Path(root) if root else ROOT
         self.output_dir = Path(output_dir) if output_dir else self.root / ("salidas_offline" if modo == "offline" else "salidas_ollama_corregido")
         load_env(self.root / ".env")
@@ -33,6 +43,9 @@ class Agent:
         self.policy_sources = []
 
     def _call(self, name, arguments, session):
+        """Recibe nombre, argumentos y sesión; devuelve el resultado de una herramienta
+        permitida. Conserva esa llamada en la traza para justificar la respuesta.
+        """
         if not isinstance(name, str) or name not in {"consulta_datos", "buscar_condicionados", "escalar_humano"}:
             result = {"error": "Herramienta no permitida.", "fuentes": []}
         elif not isinstance(arguments, dict) or len(json.dumps(arguments, ensure_ascii=False)) > 12000:
@@ -43,16 +56,26 @@ class Agent:
         return result
 
     def _sources(self):
+        """Devuelve las fuentes de herramientas y políticas sin duplicados. Las
+        referencias se obtienen de la ejecución, no de citas inventadas por el
+        modelo.
+        """
         return list(dict.fromkeys([source for item in self.trace
                                   for source in item["resultado"].get("fuentes", [])] + self.policy_sources))
 
     def _model_events(self):
+        """Devuelve los eventos disponibles del modelo, o una lista vacía. Permite medir
+        llamadas reales y trabajar con modelos simulados en las pruebas.
+        """
         events = getattr(self.model, "events", [])
         return events if isinstance(events, list) else []
 
     @staticmethod
     def _token_usage(events, no_calls=False):
-        """Suma contadores de la API; nunca estima tokens desde el texto."""
+        """Suma los contadores recibidos de Ollama y devuelve las métricas. Sin llamadas
+        registra cero; si falta información conserva los valores conocidos y marca el
+        total desconocido, sin estimarlo desde el texto.
+        """
         if no_calls:
             return {"tokens_entrada": 0, "tokens_salida": 0, "tokens_total": 0,
                     "tokens_medicion_completa": True}
@@ -78,6 +101,10 @@ class Agent:
         return usage
 
     def _failed_interpretation(self, mensaje, session):
+        """Ante una interpretación fallida, busca la regla de derivación y solicita un
+        ticket local. Devuelve un mensaje seguro y comunica también si no pudo
+        registrar el ticket.
+        """
         self._call("buscar_condicionados", {"consulta": "articulo 10", "ramo": "general"}, session)
         self.policy_sources.append("ENUNCIADO.pdf, regla de negocio 5 (sin inventar)")
         ticket = self._call("escalar_humano", {"motivo": "Interpretación de consulta no disponible o no validada",
@@ -90,6 +117,12 @@ class Agent:
                 " para revisión humana. El ticket es local y no implica contacto automático.")
 
     def respond(self, mensaje, session):
+        """Recibe la pregunta y la sesión externa; devuelve respuesta, fuentes,
+        herramientas y métricas. Rol e ID deben existir en los CSV, pero esto no
+        autentica a una persona. Aplica controles antes de Qwen y guarda la
+        interacción incluso ante errores. Un estado ok indica ejecución, no certifica
+        que la respuesta sea correcta.
+        """
         started = time.perf_counter()
         self.trace, self.policy_sources = [], []
         llm_start = len(self._model_events())

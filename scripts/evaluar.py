@@ -1,7 +1,8 @@
-"""Evalúa un lote guardado con reglas acotadas, sin ejecutar inferencias.
+"""Revisa respuestas guardadas mediante reglas y genera informes explicables.
 
 Salida: 0 si todos cumplen comprobaciones, 1 si hay parciales/fallos,
 2 si la entrada o configuración es inválida. No reemplaza revisión humana.
+Se ejecuta desde la raíz con ``python -m scripts.evaluar`` y no llama al modelo.
 """
 
 import argparse
@@ -13,10 +14,11 @@ from seguros.evaluation import (EvaluationInputError, evaluar, evaluar_detalle,
                                 validar_resultados, incorporar_metricas_guardadas)
 
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def main():
+    """Lee una ejecución y conserva por separado la entrada y los informes de revisión."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--entrada", type=Path, default=None)
     parser.add_argument("--informe", type=Path, default=None)
@@ -24,6 +26,7 @@ def main():
     args = parser.parse_args()
     source = args.entrada
     if source is None:
+        # Se priorizan ejecuciones locales; salidas/ contiene evidencia publicada.
         candidates = [ROOT / "salidas_ollama_corregido/respuestas.json",
                       ROOT / "salidas_ollama/respuestas.json", ROOT / "salidas_offline/respuestas.json"]
         source = next((candidate for candidate in candidates if candidate.is_file()), candidates[-1])
