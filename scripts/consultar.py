@@ -1,8 +1,6 @@
-"""Atiende una consulta o abre una consola con una sesión de demostración.
-
-Se ejecuta desde la raíz con ``python -m scripts.consultar`` y los datos de sesión.
-La identidad se conserva entre preguntas, pero cada consulta es independiente.
-"""
+"""Permite hacer una pregunta o escribir varias en la consola.
+El usuario elegido se mantiene, pero cada pregunta empieza sin recordar las anteriores.
+Ejecuta ``python -m scripts.consultar`` desde la carpeta principal e indica el rol y el usuario."""
 
 import argparse
 import os
@@ -14,7 +12,10 @@ from seguros.model import load_env
 
 
 def show_result(result):
-    """Presenta la respuesta y mediciones reales, incluida su falta de datos."""
+    """Muestra la respuesta del agente y las medidas que recibió: tokens de entrada, de salida y tiempo.
+    Por ejemplo, 100 tokens de entrada + 20 de salida = 120 en total; si la consulta tomó 0.5 segundos, también muestra ese tiempo.
+    Las cifras del ejemplo son ilustrativas: el comando muestra los valores medidos en cada consulta.
+    Si falta una medida, lo indica y no la reemplaza por cero."""
     print(result["respuesta"])
     values = [result.get(key) for key in ("tokens_entrada", "tokens_salida", "tokens_total")]
     labels = [str(value) if isinstance(value, int) and not isinstance(value, bool) else "no disponible" for value in values]
@@ -31,7 +32,12 @@ def show_result(result):
 
 
 def main():
-    """Valida la sesión y muestra respuestas con fuentes, tokens y tiempo de consulta."""
+    """Lee el rol y el usuario elegidos para la demostración; por ejemplo, --rol cliente --usuario C001.
+    Esto no es un inicio de sesión real con contraseña: permite probar las consultas de ese usuario.
+    Con --mensaje puedes preguntar por S-5521 una sola vez; sin --mensaje, puedes seguir escribiendo en la consola.
+    
+    El programa comprueba que el usuario exista y entrega su identidad al agente por separado del mensaje.
+    Cada pregunta es independiente. Para terminar puedes escribir salir o exit, pulsar Ctrl+C o dejar de enviar líneas (fin de entrada, EOF)."""
     load_env(ROOT / ".env")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--rol", choices=["cliente", "asesor"], required=True)

@@ -1,7 +1,6 @@
-"""Prepara Ollama antes de ejecutar los comandos de casos o consola. Reutiliza servicio
-y modelo; cuando faltan, puede descargar y arrancar una distribución portátil en
-Windows x64. Los archivos y procesos propios quedan en .runtime, sin configurar una
-instalación global.
+"""Deja Ollama y el modelo listos antes de atender consultas. Reutiliza lo instalado y,
+en Windows x64, puede preparar lo que falte dentro del proyecto. No cambia una
+instalación general del sistema.
 """
 
 import errno
@@ -36,8 +35,8 @@ DEFAULT_MODEL = "qwen2.5:7b"
 
 
 class SetupError(RuntimeError):
-    """Error de preparación que los comandos muestran de forma breve. Impide ejecutar
-    casos cuando no se pudo verificar el servicio o el modelo.
+    """Indica que no se pudo dejar Ollama listo. Los comandos muestran ese problema
+    antes de intentar responder preguntas.
     """
 
 
@@ -57,9 +56,8 @@ def _json(base_url, endpoint, data=None, timeout=10):
 
 
 def _probe(base_url):
-    """Comprueba si Ollama responde en la dirección local. Una conexión rechazada
-    significa ausencia; un problema de permisos no autoriza iniciar un servidor
-    duplicado.
+    """Comprueba si Ollama responde en esta computadora. Si hay un error de permisos o
+    una respuesta inesperada, se detiene en vez de iniciar otro Ollama encima.
     """
     try:
         result = _json(base_url, "/api/version", timeout=3)
@@ -87,7 +85,7 @@ def _pid_alive(pid):
         kernel.OpenProcess.restype = ctypes.c_void_p
         handle = kernel.OpenProcess(0x1000, False, pid)
         if not handle:
-            return ctypes.get_last_error() != 87  # acceso denegado no prueba ausencia
+            return ctypes.get_last_error() != 87  # No tener permiso no significa que Ollama esté apagado.
         try:
             code = ctypes.c_ulong()
             return not kernel.GetExitCodeProcess(ctypes.c_void_p(handle), ctypes.byref(code)) or code.value == 259
@@ -104,8 +102,8 @@ def _pid_alive(pid):
 
 @contextmanager
 def _setup_lock(runtime, progress, timeout=900):
-    """Coordina preparaciones simultáneas mediante un archivo con dueño y plazo. Libera
-    únicamente su propio bloqueo y evita colisiones de instalación.
+    """Evita que dos comandos preparen Ollama al mismo tiempo. Deja una señal para que
+    el otro espere y la retira al terminar.
     """
     runtime.mkdir(parents=True, exist_ok=True)
     path = runtime / "setup.lock"
@@ -155,9 +153,8 @@ def _hash(path):
 
 
 def _download_archive(runtime, progress):
-    """Descarga el ZIP oficial a un archivo parcial y comprueba el SHA-256 fijado.
-    Devuelve solo un archivo verificado; descarta una descarga inconsistente antes de
-    ejecutarla.
+    """Descarga el archivo oficial de Ollama y comprueba que su contenido sea el
+    esperado. Si no coincide, lo descarta sin ejecutarlo.
     """
     archive = runtime / f"ollama-windows-amd64-{VERSION}.zip"
     partial = archive.with_suffix(".zip.part")
@@ -200,8 +197,8 @@ def _download_archive(runtime, progress):
 
 
 def _safe_extract(archive, target):
-    """Verifica tamaños y rutas del ZIP antes de extraerlo en el destino. Rechaza
-    enlaces y recorridos fuera de esa carpeta para no escribir archivos ajenos.
+    """Revisa el contenido del archivo descargado. Rechaza rutas que salgan de la
+    carpeta elegida, enlaces y tamaños excesivos. Después guarda los archivos allí.
     """
     with zipfile.ZipFile(archive) as bundle:
         entries = bundle.infolist()
@@ -220,9 +217,8 @@ def _safe_extract(archive, target):
 
 
 def _install_runtime(runtime, progress):
-    """Extrae el archivo verificado en una carpeta temporal y publica la instalación
-    completa. Devuelve el ejecutable y limpia solo temporales creados dentro de
-    .runtime.
+    """Prepara una copia completa de Ollama dentro del proyecto y devuelve dónde quedó
+    el programa. Si falla, borra solo la carpeta temporal que creó.
     """
     archive = _download_archive(runtime, progress)
     stage = Path(tempfile.mkdtemp(prefix="ollama-extract-", dir=runtime))
@@ -241,7 +237,7 @@ def _install_runtime(runtime, progress):
         archive.unlink()
         return destination / "ollama.exe"
     finally:
-        # Únicamente temporales creados por esta función, dentro de .runtime.
+        # Borra solo la carpeta temporal creada aquí, dentro de .runtime.
         if stage.exists():
             resolved = stage.resolve()
             if resolved.parent != runtime.resolve() or not resolved.name.startswith("ollama-extract-"):
@@ -250,8 +246,8 @@ def _install_runtime(runtime, progress):
 
 
 def _binary(runtime):
-    """Busca un ejecutable portátil o ya instalado sin cambiar el PATH. Devuelve su ruta
-    o None; no instala nada por sí misma.
+    """Busca Ollama en el proyecto o en una instalación que ya exista. Devuelve dónde
+    está; no instala nada.
     """
     portable = runtime / "ollama" / "ollama.exe"
     if portable.is_file():
@@ -269,9 +265,8 @@ def _binary(runtime):
 
 
 def _start_server(binary, runtime, base_url):
-    """Inicia un proceso propio oculto, ligado a localhost y a carpetas de la
-    demostración. Devuelve el proceso y guarda sus logs y PID sin tocar perfiles ni
-    servicios ajenos.
+    """Inicia Ollama sin mostrar una ventana nueva. Usa las carpetas del proyecto y
+    guarda los mensajes de inicio, sin cambiar instalaciones ajenas.
     """
     parsed = urlparse(base_url)
     if parsed.scheme != "http":
@@ -295,8 +290,13 @@ def _start_server(binary, runtime, base_url):
 
 
 def _wait_ready(base_url, process, timeout=90):
-    """Espera la disponibilidad del proceso recién iniciado con un plazo. Devuelve la
-    versión de Ollama o falla sin esperar indefinidamente.
+    """Recibe la dirección de Ollama y el programa que acabamos de iniciar. Comprueba si
+    ya responde; por ejemplo, puede seguir buscando la tarjeta gráfica y tardar unos
+    segundos. Si solo tarda en contestar, vuelve a comprobarlo mientras ese programa
+    siga abierto y no se agote el tiempo límite. No hace lo mismo con errores de
+    permisos o del servidor: esos errores detienen el inicio. Devuelve la versión
+    cuando está listo o informa que no pudo arrancar; no inicia otro Ollama para
+    reemplazarlo.
     """
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -308,8 +308,8 @@ def _wait_ready(base_url, process, timeout=90):
                 cause = cause.reason
             if not isinstance(cause, TimeoutError):
                 raise
-            # Solo esperamos al proceso creado aquí; un inicio frío puede tardar
-            # en responder. Permisos y errores HTTP conservan su fallo inmediato.
+            # El Ollama que acabamos de iniciar puede tardar en responder.
+            # Los errores de permisos o del servidor siguen deteniendo el inicio.
             version = None
         if version:
             return version
@@ -333,8 +333,8 @@ def _has_model(tags, model):
 
 
 def _pull_model(base_url, model, progress):
-    """Solicita la descarga del modelo al servidor y muestra su avance. Solo termina
-    normalmente cuando Ollama informa éxito; no inventa una instalación completada.
+    """Pide a Ollama que descargue el modelo y muestra el avance. Solo termina bien
+    cuando Ollama confirma que acabó la descarga.
     """
     progress(f"Descargando el modelo {model}; qwen2.5:7b ocupa aproximadamente 4.7 GB…")
     request = Request(base_url + "/api/pull", data=json.dumps({"model": model, "stream": True}).encode("utf-8"),
@@ -367,11 +367,13 @@ def _pull_model(base_url, model, progress):
 
 
 def ensure_ollama(modelo=None, base_url=None, root=None, prepare=True, progress=print):
-    """Recibe modelo, servidor local, raíz y opciones de preparación; devuelve un
-    resumen del estado. Reutiliza lo existente, verifica descargas y carga el modelo
-    antes de atender casos. La instalación automática requiere Windows x64; otros
-    sistemas deben tener un servicio local iniciado. Los fallos se muestran sin usar
-    offline como sustituto.
+    """Recibe el modelo que se quiere usar, la dirección de Ollama y la carpeta del
+    proyecto. Primero comprueba si Ollama ya responde y reutiliza lo que esté
+    disponible. Si falta algo, en Windows x64 puede preparar Ollama y descargar el
+    modelo; en otros sistemas necesita Ollama ya iniciado. Después comprueba que el
+    modelo exista y lo deja cargado para atender preguntas. Por ejemplo, si
+    qwen2.5:7b ya está instalado, lo reutiliza sin descargarlo otra vez. Devuelve qué
+    hubo que preparar o informa un error, sin cambiar al modo sin IA.
     """
     root = Path(root).resolve() if root else Path(__file__).resolve().parents[1]
     model = modelo or os.getenv("OLLAMA_MODEL", DEFAULT_MODEL)
@@ -393,10 +395,10 @@ def ensure_ollama(modelo=None, base_url=None, root=None, prepare=True, progress=
               "runtime_descargado": False, "modelo_descargado": False, "preparado": False}
     progress(f"Preparando IA local: {model}. La primera ejecución puede descargar Ollama y el modelo.")
     try:
-        # Probe antes de crear archivos: un permiso de red denegado no es ausencia.
+        # Primero comprueba si Ollama está; no tener permiso no significa que falte.
         _probe(base)
         with _setup_lock(runtime, progress):
-            version = _probe(base)  # otro proceso pudo completar la preparación
+            version = _probe(base)  # Otro comando pudo haberlo dejado listo.
             if not version:
                 if sys.platform != "win32" or platform.machine().lower() not in {"amd64", "x86_64"} or sys.maxsize <= 2 ** 32:
                     raise SetupError("La instalación automática está disponible para Windows x64. En este sistema inicia Ollama por tu cuenta; después el programa reutilizará su servicio local.")
@@ -410,7 +412,7 @@ def ensure_ollama(modelo=None, base_url=None, root=None, prepare=True, progress=
                 try:
                     version = _wait_ready(base, process)
                 except Exception:
-                    # Solo el proceso creado aquí; nunca servicios ajenos.
+                    # Cierra solo el Ollama iniciado aquí, no otros programas.
                     if process.poll() is None:
                         process.terminate()
                     (runtime / "server.pid").unlink(missing_ok=True)

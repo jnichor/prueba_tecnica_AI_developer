@@ -1,6 +1,6 @@
-"""Cliente HTTP de Ollama para el intérprete de preguntas. Planner envía mensajes y un
-esquema JSON a un servicio local; este módulo registra tiempos y contadores reales de
-la petición. No consulta los CSV ni evalúa la corrección de respuestas.
+"""Conecta el programa con Ollama en esta computadora. Envía la pregunta y las
+instrucciones y recibe los datos que entendió Qwen. También cuenta los tokens y el
+tiempo de cada llamada.
 """
 
 import json
@@ -14,9 +14,8 @@ from urllib.request import Request, urlopen
 
 
 def load_env(path: Path) -> None:
-    """Carga las opciones admitidas de un archivo de configuración sin ejecutar su
-    contenido. Respeta valores ya presentes en el entorno y no necesita una clave de
-    servicio pagado.
+    """Lee las opciones permitidas del archivo de configuración sin ejecutarlo como
+    código. Respeta los valores que ya estén configurados.
     """
     if path.is_file():
         for line in path.read_text(encoding="utf-8-sig").splitlines():
@@ -28,19 +27,19 @@ def load_env(path: Path) -> None:
 
 
 class ModelError(RuntimeError):
-    """Comunica un fallo de conexión, respuesta o formato del servicio local. El agente
-    lo registra y deriva; no lo oculta cambiando al modo offline.
+    """Indica que hubo un problema al hablar con Ollama o al recibir su respuesta. El
+    programa informa el error en vez de cambiar al modo sin IA.
     """
     pass
 
 
 class OllamaModel:
-    """Recibe modelo, URL local y tiempo máximo de espera. Ofrece chat para obtener un
-    mensaje del modelo y conserva los eventos de consumo.
+    """Mantiene la conexión con Ollama en esta computadora. Permite enviar preguntas y
+    consultar los tokens y el tiempo de las llamadas.
     """
     def __init__(self, modelo=None, base_url=None, timeout=120):
-        """Selecciona modelo y dirección desde argumentos o entorno. Rechaza servidores
-        fuera de localhost y no inicia ni descarga Ollama.
+        """Recibe el nombre del modelo, la dirección de Ollama y cuánto esperar. Solo
+        acepta una dirección de esta computadora y no inicia ni descarga programas.
         """
         self.modelo = modelo or os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
         self.base_url = (base_url or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")).rstrip("/")
@@ -52,10 +51,13 @@ class OllamaModel:
         self.telemetry_path = None
 
     def chat(self, messages, tools, format_schema=None):
-        """Recibe mensajes, herramientas y un esquema opcional; devuelve el mensaje de
-        Ollama. Registra la llamada aunque falle, con contadores observados cuando
-        existan. Un estado ok indica respuesta HTTP válida, no un juicio de
-        corrección del contenido.
+        """Recibe los mensajes que se quieren enviar y, cuando corresponde, las reglas
+        sobre los datos que debe devolver Qwen. Habla con Ollama en esta computadora
+        y devuelve su mensaje. En este proyecto se usa para entender la pregunta, no
+        para enviarle expedientes ni escribir la respuesta final al cliente. Guarda
+        el tiempo y los tokens que Ollama informe, incluso si algo falla. Que la
+        llamada termine bien no garantiza que su contenido sea correcto: la parte que
+        la pidió todavía debe revisarlo.
         """
         payload = {"model": self.modelo, "messages": messages, "tools": tools,
                    "stream": False, "keep_alive": "10m",
@@ -78,8 +80,8 @@ class OllamaModel:
             result = json.loads(raw)
             if not isinstance(result, dict):
                 raise ModelError("Ollama devolvió un objeto de respuesta inválido.")
-            # Preserve observed counters even when final message validation fails.
-            # Agent marks such usage incomplete instead of claiming an exact sum.
+            # Conserva los tokens recibidos aunque la respuesta final tenga un error.
+            # El total queda como desconocido si falta información.
             event.update({"prompt_eval_count": result.get("prompt_eval_count"),
                           "eval_count": result.get("eval_count")})
             message = result.get("message")

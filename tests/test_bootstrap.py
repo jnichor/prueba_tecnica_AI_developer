@@ -1,6 +1,5 @@
-"""Preparación de Ollama con red, procesos y archivos de descarga simulados.
-
-Verifica reutilización, integridad, límites y fallos sin descargar modelos ni iniciar servicios."""
+"""Comprueba cómo se prepara Ollama cuando falta, ya está disponible o tarda en responder.
+Las descargas, conexiones y procesos se reemplazan por respuestas de prueba; no se descarga ni inicia nada real."""
 
 import hashlib
 import io
@@ -20,13 +19,13 @@ from seguros import bootstrap as b
 
 
 class Response(io.BytesIO):
-    """Respuesta HTTP en memoria para probar el contrato de descarga."""
+    """Hace de la respuesta de una descarga, pero conserva el archivo solo en memoria."""
     def geturl(self):
         return b.ARCHIVE_URL
 
 
 def fixture_zip(entries=None):
-    """Construye un ZIP pequeño para probar integridad y extracción."""
+    """Crea un ZIP pequeño para comprobar que se revise y abra de forma segura."""
     stream = io.BytesIO()
     with zipfile.ZipFile(stream, "w") as archive:
         for name, content in entries or [("ollama.exe", b"fixture: nunca ejecutar"), ("lib/lectura.txt", b"fixture")]:
@@ -35,7 +34,9 @@ def fixture_zip(entries=None):
 
 
 class BootstrapTests(unittest.TestCase):
-    """Preparación reproducible sin descargas, procesos ni servicios reales."""
+    """Comprueba la preparación de Ollama usando archivos y respuestas preparados para cada prueba.
+    Por ejemplo, comprueba que el programa espere si acaba de abrir Ollama y tarda en responder.
+    También verifica que un problema de permisos no provoque que se abra otro servidor."""
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
@@ -50,7 +51,7 @@ class BootstrapTests(unittest.TestCase):
         self.process.poll.return_value = None
 
     def network(self, request, timeout=0):
-        """Simula endpoints de Ollama y la descarga sin usar red."""
+        """Devuelve respuestas preparadas de Ollama y de las descargas, sin conectarse a Internet."""
         url = request.full_url
         if url == b.ARCHIVE_URL:
             self.events.append("download")
@@ -78,7 +79,7 @@ class BootstrapTests(unittest.TestCase):
         return Response(json.dumps(result).encode())
 
     def popen(self, args, **kwargs):
-        """Registra el inicio solicitado sin ejecutar el binario de prueba."""
+        """Hace como si Ollama se hubiera iniciado, sin ejecutar ningún programa real."""
         self.assertTrue(Path(args[0]).is_file())
         self.assertEqual(Path(args[0]).read_bytes(), b"fixture: nunca ejecutar")
         self.assertEqual(args[1], "serve")
@@ -92,7 +93,7 @@ class BootstrapTests(unittest.TestCase):
         return self.process
 
     def environment(self):
-        """Aisla plataforma, red y procesos para reproducir el arranque."""
+        """Sustituye las conexiones y los procesos por versiones de prueba para comprobar el arranque."""
         stack = ExitStack()
         stack.enter_context(patch.dict(os.environ, {"USERPROFILE": str(self.root / "perfil")}, clear=True))
         stack.enter_context(patch.object(b.sys, "platform", "win32"))
@@ -110,7 +111,7 @@ class BootstrapTests(unittest.TestCase):
         return stack
 
     def prepare(self, **kwargs):
-        """Ejecuta la preparación bajo los servicios simulados del escenario."""
+        """Pide preparar Ollama con los archivos y las respuestas de este caso de prueba."""
         return b.ensure_ollama(root=self.root, progress=lambda _: None, **kwargs)
 
     def test_clean_setup_verifies_extracts_starts_pulls_and_warms_in_order(self):
@@ -249,7 +250,7 @@ class BootstrapTests(unittest.TestCase):
     def test_owned_startup_permission_and_http_errors_are_not_retried(self):
         failures = (
             (URLError(PermissionError(10013, "fixture")), "permisos"),
-            # HTTPError hereda de URLError: su motivo no autoriza tratarlo como arranque lento.
+            # Un error del servidor no debe tratarse como un simple retraso al iniciar.
             (HTTPError("http://localhost:11434/api/version", 503, TimeoutError("fixture"), None, None), "HTTP 503"),
         )
         for failure, message in failures:

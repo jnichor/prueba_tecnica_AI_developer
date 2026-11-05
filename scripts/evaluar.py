@@ -1,9 +1,9 @@
-"""Revisa respuestas guardadas mediante reglas y genera informes explicables.
+"""Comprueba respuestas ya guardadas comparándolas con los datos y las condiciones, sin llamar a Qwen ni generar otras respuestas.
+Por ejemplo, si S-5521 está en evaluación pero la respuesta dice que ya fue pagado, el informe señala la contradicción.
 
-Salida: 0 si todos cumplen comprobaciones, 1 si hay parciales/fallos,
-2 si la entrada o configuración es inválida. No reemplaza revisión humana.
-Se ejecuta desde la raíz con ``python -m scripts.evaluar`` y no llama al modelo.
-"""
+Guarda un informe para leer y otro para procesar con un programa.
+El código de salida indica: 0, todos los casos pasaron; 1, hay casos incorrectos o pendientes de revisar; 2, no pudo leer o comprobar la entrada.
+Ejecuta ``python -m scripts.evaluar`` desde la carpeta principal del proyecto."""
 
 import argparse
 import json
@@ -18,7 +18,11 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def main():
-    """Lee una ejecución y conserva por separado la entrada y los informes de revisión."""
+    """Lee el archivo indicado con --entrada y comprueba sus respuestas.
+    Si no eliges un archivo, busca las ejecuciones locales; no toma por defecto los resultados publicados en salidas/.
+    
+    Por ejemplo, compara el estado que una respuesta atribuye a S-5521 con el estado guardado en los datos.
+    Guarda el detalle de lo que pasó o falló y conserva el archivo de respuestas original."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--entrada", type=Path, default=None)
     parser.add_argument("--informe", type=Path, default=None)
@@ -26,7 +30,7 @@ def main():
     args = parser.parse_args()
     source = args.entrada
     if source is None:
-        # Se priorizan ejecuciones locales; salidas/ contiene evidencia publicada.
+        # Buscamos pruebas locales; salidas/ contiene la copia de resultados para compartir.
         candidates = [ROOT / "salidas_ollama_corregido/respuestas.json",
                       ROOT / "salidas_ollama/respuestas.json", ROOT / "salidas_offline/respuestas.json"]
         source = next((candidate for candidate in candidates if candidate.is_file()), candidates[-1])

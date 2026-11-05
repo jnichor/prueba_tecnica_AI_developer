@@ -1,6 +1,5 @@
-"""Interpretación limitada de preguntas y validación de planes de consulta.
-
-Incluye entidades inventadas, texto hostil y consultas propias para probar las fronteras del modelo."""
+"""Comprueba que los campos devueltos por Qwen correspondan a la pregunta del usuario.
+Incluye códigos inventados y mensajes engañosos para verificar que el programa los rechace antes de consultar datos."""
 
 import csv
 import json
@@ -21,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def plan(**changes):
-    """Crea los campos exactos del contrato de interpretación."""
+    """Prepara los campos que se esperan de Qwen en esta prueba."""
     result = {"intent": "estado_siniestro", "siniestro_id": "S-5521", "poliza_id": None,
               "ramo": None, "evento": "desconocido", "trimestre": None, "anio": None}
     result.update(changes)
@@ -29,7 +28,8 @@ def plan(**changes):
 
 
 class FakeModel:
-    """Interprete simulado que conserva llamadas y devuelve planes controlados."""
+    """Hace de Qwen en esta prueba: devuelve datos preparados sin consultar una IA real.
+    Por ejemplo, permite devolver un código que no aparece en la pregunta para comprobar que el programa lo rechace."""
     modelo = "local-fixture"
 
     def __init__(self, outputs):
@@ -49,7 +49,7 @@ class FakeModel:
 
 
 class PlanValidationTests(unittest.TestCase):
-    """Entidades y formatos admitidos antes de consultar datos."""
+    """Comprueba que los códigos y campos recibidos se puedan usar para consultar datos."""
     def test_own_policy_discovery_does_not_need_a_policy_code(self):
         for message in ("dime cual es mi poliza", "¿Cuál es mi póliza?", "Muéstrame mis pólizas",
                         "¿Qué seguros tengo?", "Quiero consultar mis seguros", "Listar pólizas a mi nombre"):
@@ -230,7 +230,7 @@ class PlanValidationTests(unittest.TestCase):
 
 
 class AgentPlanningTests(unittest.TestCase):
-    """Integración del plan validado con el acceso y la respuesta del agente."""
+    """Comprueba cómo usa el agente los campos recibidos para buscar datos y responder."""
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)

@@ -1,6 +1,5 @@
-"""Consola con identidad fija y consultas independientes.
-
-Simula mensajes, errores y formas de salida para comprobar el flujo sin servicios reales."""
+"""Comprueba que puedas escribir varias preguntas y salir de la consola.
+Usa mensajes y respuestas preparados para probar el flujo sin abrir una conexión real con Ollama."""
 
 from contextlib import ExitStack, redirect_stdout
 import io
@@ -15,7 +14,7 @@ from seguros.bootstrap import SetupError
 
 
 class InteractiveTests(unittest.TestCase):
-    """Mensajes sucesivos, fallos y salida de una misma sesión de consola."""
+    """Prueba varias preguntas, errores y formas de salir con el mismo usuario."""
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
@@ -23,14 +22,14 @@ class InteractiveTests(unittest.TestCase):
 
     @staticmethod
     def response(**extra):
-        """Crea una respuesta con métricas controladas para mostrar en la consola."""
+        """Prepara una respuesta y sus medidas para mostrarlas en la consola."""
         return {"respuesta": "En evaluación.\n\nFuentes: siniestros:S-5521", "estado": "ok",
                 "modo": "offline", "modelo": None, "tokens_entrada": 0,
                 "tokens_salida": 0, "tokens_total": 0, "tokens_medicion_completa": True,
                 "total_segundos": 0.01, **extra}
 
     def execute(self, entries, flags=None, answers=None, setup_error=None):
-        """Alimenta la consola y captura el resultado sin preparar servicios."""
+        """Escribe mensajes de prueba en la consola y recoge lo que imprime, sin iniciar Ollama."""
         agent = Mock()
         agent.tools.validate_session.return_value = True
         agent.respond.side_effect = answers if answers is not None else lambda message, session: self.response()

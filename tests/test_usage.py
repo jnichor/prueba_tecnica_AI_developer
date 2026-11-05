@@ -1,6 +1,5 @@
-"""Medición de tokens y tiempos por consulta a partir de contadores observados.
-
-Usa respuestas simuladas para verificar errores, contadores ausentes y separación entre consultas."""
+"""Comprueba que se sumen bien los tokens, las cantidades de texto que cuenta Ollama, y los tiempos de cada pregunta.
+Usa valores preparados para verificar errores y medidas que faltan, sin llamar a Qwen."""
 
 import json
 from pathlib import Path
@@ -15,7 +14,7 @@ from seguros.model import ModelError, OllamaModel
 
 
 class UsageTests(unittest.TestCase):
-    """Contadores completos, incompletos y fallidos sin estimar valores."""
+    """Comprueba que una medida ausente no se invente y que no se mezclen consultas distintas."""
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
@@ -24,7 +23,7 @@ class UsageTests(unittest.TestCase):
 
     @staticmethod
     def event(inputs, outputs, **extra):
-        """Construye un evento con los contadores presentes en cada escenario."""
+        """Prepara el registro de una llamada con los contadores que necesita esta prueba."""
         return {"estado": "ok", "prompt_eval_count": inputs, "eval_count": outputs,
                 "segundos": 0.25, **extra}
 

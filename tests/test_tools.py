@@ -1,6 +1,5 @@
-"""Acceso autorizado y de solo lectura a datos y condiciones.
-
-Comprueba SQL permitido, aislamiento entre clientes y registro de tickets en archivos temporales."""
+"""Comprueba que las consultas a las tablas, llamadas SQL, solo lean los datos permitidos.
+También revisa la búsqueda en las condiciones y las solicitudes de atención guardadas en archivos de prueba."""
 
 import json
 import tempfile
@@ -11,7 +10,7 @@ from seguros.tools import ROOT, Tools
 
 
 class ToolsTests(unittest.TestCase):
-    """Fronteras de permisos, lectura y búsqueda en las herramientas."""
+    """Comprueba quién puede leer cada dato y que las herramientas no cambien los registros."""
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
@@ -20,7 +19,7 @@ class ToolsTests(unittest.TestCase):
         self.advisor = {"rol": "asesor", "usuario_id": "ASE01"}
 
     def query(self, sql, session=None, **arguments):
-        """Consulta como una sesión concreta para comprobar sus permisos."""
+        """Hace una consulta con un usuario concreto para comprobar qué datos puede leer."""
         return self.tools.call("consulta_datos", {"sql": sql, **arguments}, session or self.client)
 
     def test_customer_scope_survives_join_and_or(self):

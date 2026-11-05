@@ -1,6 +1,5 @@
-"""Comportamiento del agente frente a los casos de prueba y a fallos del modelo.
-
-Comprueba respuestas, permisos y auditoría con datos conocidos, sin un servidor de IA."""
+"""Comprueba cómo responde el agente a los casos de prueba y que hace cuando Qwen falla.
+Revisa respuestas, permisos y consultas guardadas usando datos conocidos."""
 
 import csv
 import json
@@ -20,13 +19,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def normalizar(texto):
-    """Compara respuestas sin depender de tildes o mayúsculas."""
+    """Quita diferencias de tildes y mayúsculas para comparar los textos."""
     return "".join(c for c in unicodedata.normalize("NFD", texto.lower())
                    if unicodedata.category(c) != "Mn")
 
 
 class AgentTests(unittest.TestCase):
-    """Casos funcionales y de privacidad con el flujo determinista."""
+    """Comprueba las respuestas de los casos y que cada cliente solo pueda consultar sus datos."""
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
@@ -36,7 +35,7 @@ class AgentTests(unittest.TestCase):
             encoding="utf-8"))["casos"]
 
     def responder(self, caso):
-        """Envía un caso con su sesión original para comprobar la respuesta en cada prueba."""
+        """Envía una pregunta con el usuario indicado en el caso de prueba."""
         return self.agent.respond(caso["mensaje"], {
             "rol": caso["rol"], "usuario_id": caso["usuario_id"]})
 
@@ -124,10 +123,10 @@ class AgentTests(unittest.TestCase):
             lector = csv.DictReader(stream)
             campos = lector.fieldnames
             base = next(s for s in lector if s["poliza_id"] in vehiculares and s["estado"] == "rechazado")
-        # Ocurrido en septiembre pero actualizado en octubre: queda fuera de T3.
+        # Se usa la última actualización: octubre queda fuera de julio a septiembre.
         fuera = dict(base, siniestro_id="S-9901", fecha_ocurrencia="2026-09-10",
                      fecha_aviso="2026-09-10", fecha_ultima_actualizacion="2026-10-01")
-        # Ocurrido en junio pero actualizado en julio: entra en T3.
+        # Aunque ocurrió en junio, su actualización de julio entra en el trimestre.
         dentro = dict(base, siniestro_id="S-9902", fecha_ocurrencia="2026-06-20",
                       fecha_aviso="2026-06-20", fecha_ultima_actualizacion="2026-07-01")
         with archivo.open("w", encoding="utf-8", newline="") as stream:
@@ -207,7 +206,7 @@ class AgentTests(unittest.TestCase):
 
 
 class ModelCircuitTests(unittest.TestCase):
-    """Errores del intérprete simulado y su registro sin inventar respuestas."""
+    """Comprueba que los errores de Qwen se registren sin inventar una respuesta."""
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
@@ -218,14 +217,14 @@ class ModelCircuitTests(unittest.TestCase):
 
     @staticmethod
     def plan(**cambios):
-        """Construye un plan controlado para probar el circuito del modelo."""
+        """Prepara los campos que debería devolver Qwen para probar la respuesta del agente."""
         plan = {"intent": "estado_siniestro", "siniestro_id": "S-5521", "poliza_id": None,
                 "ramo": None, "evento": "desconocido", "trimestre": None, "anio": None}
         return {**plan, **cambios}
 
     @staticmethod
     def mensaje(plan):
-        """Representa el mensaje JSON que devuelve el modelo simulado."""
+        """Convierte los campos preparados en un mensaje con el mismo formato que devuelve Qwen."""
         return {"role": "assistant", "content": json.dumps(plan, ensure_ascii=False)}
 
     def test_modelo_usa_herramienta_y_solo_fuentes_recuperadas(self):

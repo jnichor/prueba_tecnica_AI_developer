@@ -1,7 +1,6 @@
-"""Coordina una consulta de principio a fin. Los comandos de casos y consola llaman a
-Agent: comprueba la sesión de demostración, aplica controles, interpreta la pregunta
-y pide al resolutor una respuesta con fuentes. También registra herramientas, tiempos
-y consumo.
+"""Une los pasos para atender una pregunta. Comprueba el usuario, pide a Qwen entender
+la pregunta y prepara la respuesta con los datos permitidos. Guarda lo ocurrido, los
+tokens y el tiempo.
 """
 
 import json
@@ -19,13 +18,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class Agent:
-    """Recibe las rutas del proyecto y el modo de ejecución. Reúne modelo, herramientas
-    y reglas; no decide indemnizaciones ni cambia pólizas o siniestros.
+    """Atiende las consultas que llegan desde la consola o los doce casos. Coordina los
+    pasos, pero no aprueba pagos ni cambia pólizas o siniestros.
     """
     def __init__(self, root=None, output_dir=None, modo="ollama", modelo=None,
                  fecha_referencia="2026-10-15"):
-        """Configura fecha, rutas y dependencias para las consultas. En modo Ollama
-        prepara el cliente HTTP; aquí no descarga ni inicia el servicio.
+        """Recibe las carpetas, la fecha del ejercicio y el modo de uso. Prepara las
+        piezas del programa; aquí no descarga ni inicia Ollama.
         """
         self.root = Path(root) if root else ROOT
         self.output_dir = Path(output_dir) if output_dir else self.root / ("salidas_offline" if modo == "offline" else "salidas_ollama_corregido")
@@ -34,7 +33,7 @@ class Agent:
             raise ValueError("Modo permitido: offline u ollama.")
         self.modo = modo
         self.today = date.fromisoformat(fecha_referencia)
-        # Los datos solo llegan al resolutor de código, nunca al modelo.
+        # Los datos se usan para preparar la respuesta; no se envían a Qwen.
         self.tools = Tools(root=self.root, output_dir=self.output_dir, safe_model=False)
         self.model = OllamaModel(modelo=modelo) if modo == "ollama" else None
         if self.model:
@@ -43,8 +42,11 @@ class Agent:
         self.policy_sources = []
 
     def _call(self, name, arguments, session):
-        """Recibe nombre, argumentos y sesión; devuelve el resultado de una herramienta
-        permitida. Conserva esa llamada en la traza para justificar la respuesta.
+        """Recibe el nombre de una herramienta, lo que necesita para trabajar y el
+        usuario que consulta. Comprueba que la herramienta esté permitida y guarda
+        tanto el pedido como el resultado. Por ejemplo, consulta_datos puede buscar
+        S-5521 entre los registros que puede ver C001. Devuelve lo encontrado o un
+        error; no deja que el mensaje del usuario agregue otra herramienta.
         """
         if not isinstance(name, str) or name not in {"consulta_datos", "buscar_condicionados", "escalar_humano"}:
             result = {"error": "Herramienta no permitida.", "fuentes": []}
@@ -56,25 +58,31 @@ class Agent:
         return result
 
     def _sources(self):
-        """Devuelve las fuentes de herramientas y políticas sin duplicados. Las
-        referencias se obtienen de la ejecución, no de citas inventadas por el
-        modelo.
+        """Revisa la lista de herramientas utilizadas y recoge de sus resultados las
+        fuentes que realmente devolvieron. También añade las reglas del programa que
+        se usaron y quita las fuentes repetidas. Por ejemplo, puede incluir
+        siniestros:S-5521 o el Artículo 5 del condicionado vehicular. No crea una
+        cita solo porque Qwen o el usuario la hayan escrito.
         """
         return list(dict.fromkeys([source for item in self.trace
                                   for source in item["resultado"].get("fuentes", [])] + self.policy_sources))
 
     def _model_events(self):
-        """Devuelve los eventos disponibles del modelo, o una lista vacía. Permite medir
-        llamadas reales y trabajar con modelos simulados en las pruebas.
+        """Devuelve la lista de llamadas hechas a Qwen. Si no hay una lista disponible,
+        devuelve una lista vacía.
         """
         events = getattr(self.model, "events", [])
         return events if isinstance(events, list) else []
 
     @staticmethod
     def _token_usage(events, no_calls=False):
-        """Suma los contadores recibidos de Ollama y devuelve las métricas. Sin llamadas
-        registra cero; si falta información conserva los valores conocidos y marca el
-        total desconocido, sin estimarlo desde el texto.
+        """Recibe los contadores de las llamadas a Ollama y suma lo que informan cuando
+        todas terminaron bien. Los tokens son fragmentos del texto enviado y
+        recibido. Ejemplo inventado para explicar la suma: 100 de entrada y 20 de
+        salida dan 120 en total; si hubo dos intentos, suma ambos. Sin llamadas
+        devuelve cero. Si falta algún contador o una llamada terminó con error, el
+        total queda como desconocido y conserva por separado los números que sí
+        recibió, sin inventar el resto.
         """
         if no_calls:
             return {"tokens_entrada": 0, "tokens_salida": 0, "tokens_total": 0,
@@ -101,9 +109,9 @@ class Agent:
         return usage
 
     def _failed_interpretation(self, mensaje, session):
-        """Ante una interpretación fallida, busca la regla de derivación y solicita un
-        ticket local. Devuelve un mensaje seguro y comunica también si no pudo
-        registrar el ticket.
+        """Cuando no se pudo entender la pregunta con seguridad, registra una solicitud
+        de revisión. Devuelve un mensaje con el ticket local o avisa si tampoco pudo
+        crearlo.
         """
         self._call("buscar_condicionados", {"consulta": "articulo 10", "ramo": "general"}, session)
         self.policy_sources.append("ENUNCIADO.pdf, regla de negocio 5 (sin inventar)")
@@ -117,11 +125,14 @@ class Agent:
                 " para revisión humana. El ticket es local y no implica contacto automático.")
 
     def respond(self, mensaje, session):
-        """Recibe la pregunta y la sesión externa; devuelve respuesta, fuentes,
-        herramientas y métricas. Rol e ID deben existir en los CSV, pero esto no
-        autentica a una persona. Aplica controles antes de Qwen y guarda la
-        interacción incluso ante errores. Un estado ok indica ejecución, no certifica
-        que la respuesta sea correcta.
+        """Recibe la pregunta y la sesión, que contiene el rol y el código de usuario
+        elegidos. Primero comprueba qué puede consultar y detiene los pedidos que no
+        están permitidos. Cuando hace falta, pide a Qwen entender la pregunta;
+        después busca los datos y prepara una respuesta con fuentes. Devuelve esa
+        respuesta, las fuentes, las herramientas utilizadas, los tokens y el tiempo,
+        y guarda lo ocurrido aunque haya un error. Ejemplo: si C001 pregunta cómo va
+        S-5521, busca ese siniestro solo entre sus datos. Que el programa termine sin
+        error no garantiza que todo lo dicho sea correcto.
         """
         started = time.perf_counter()
         self.trace, self.policy_sources = [], []
@@ -145,7 +156,7 @@ class Agent:
                     interpretation = "offline_explicito"
                 else:
                     model_invoked = True
-                    # Se crea con el modelo actual para permitir inyección en pruebas.
+                    # Se usa el modelo actual para poder probarlo con una respuesta simulada.
                     plan = Planner(self.model, self.today).interpret(mensaje, session)
                     interpretation = "modelo"
                 answer = resolver.resolve(plan, mensaje, session)

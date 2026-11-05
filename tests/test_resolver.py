@@ -1,6 +1,5 @@
-"""Respuestas construidas desde datos y artículos, sin redacción libre del modelo.
-
-Muta un corpus temporal para comprobar fechas, exclusiones, privacidad y fuentes insuficientes."""
+"""Comprueba las respuestas que el programa construye con los datos y las condiciones del seguro.
+Cambia una copia de los archivos para probar fechas, exclusiones, permisos y datos que faltan."""
 
 import csv
 from datetime import date
@@ -15,7 +14,7 @@ from seguros.tools import ROOT, Tools
 
 
 class ResolverTests(unittest.TestCase):
-    """Reglas del seguro y citas verificables sobre un corpus aislado."""
+    """Comprueba las reglas del seguro y las fuentes usando copias de los archivos."""
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
@@ -27,7 +26,7 @@ class ResolverTests(unittest.TestCase):
         self.reset()
 
     def reset(self):
-        """Recrea el resolutor y sus herramientas sobre la copia temporal del corpus."""
+        """Vuelve a preparar las consultas y las respuestas sobre los archivos de esta prueba."""
         tools = Tools(root=self.root, output_dir=self.root / "salida")
 
         def call(name, args, session):
@@ -38,7 +37,7 @@ class ResolverTests(unittest.TestCase):
         self.resolver = Resolver(date(2026, 10, 15), call)
 
     def change(self, table, key, identifier, **values):
-        """Modifica un registro de prueba sin tocar los datos originales."""
+        """Cambia un registro de la copia de prueba sin tocar los datos originales."""
         path = self.root / "datos" / (table + ".csv")
         with path.open(encoding="utf-8-sig", newline="") as stream:
             reader = csv.DictReader(stream)

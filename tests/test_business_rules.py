@@ -1,6 +1,5 @@
-"""Cumplimiento de las ocho reglas ante consultas legítimas y ataques simulados.
-
-El clasificador se controla para comprobar que la sesión y los datos conservan su autoridad."""
+"""Comprueba las ocho reglas con preguntas permitidas y pedidos que deben rechazarse.
+Verifica que un cliente no vea datos ajenos ni cambie las reglas por lo que escribe en su mensaje."""
 
 import csv
 import json
@@ -19,13 +18,14 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def plan(intent="estado_siniestro", **changes):
-    """Construye una interpretación limitada para probar una regla concreta."""
+    """Prepara los campos que devolverá Qwen para comprobar una regla concreta."""
     return {"intent": intent, "siniestro_id": None, "poliza_id": None, "ramo": None,
             "evento": "desconocido", "trimestre": None, "anio": None, **changes}
 
 
 class PlannedModel:
-    """Doble explícito: devuelve planes, nunca redacta respuestas al cliente."""
+    """Hace de Qwen en esta prueba: devuelve datos preparados sin consultar una IA real.
+    Podemos hacer que responda algo incorrecto para comprobar que el programa lo detecta y no lo usa."""
 
     modelo = "clasificador-simulado"
 
@@ -43,7 +43,8 @@ class PlannedModel:
 
 
 class BusinessRuleTests(unittest.TestCase):
-    """Consultas y ataques contra las reglas de negocio y la sesión."""
+    """Comprueba que se respeten los permisos del usuario aunque el mensaje pida otra cosa.
+    Por ejemplo, si C001 pregunta por un siniestro de otro cliente, la respuesta no debe mostrarle sus datos."""
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
@@ -52,7 +53,7 @@ class BusinessRuleTests(unittest.TestCase):
         self.cases = json.loads((ROOT / "casos_prueba/casos_prueba.json").read_text(encoding="utf-8"))["casos"]
 
     def agent(self, value, root=ROOT):
-        """Inyecta el clasificador controlado en una instancia de prueba."""
+        """Crea un agente que usa respuestas preparadas en lugar de consultar a Qwen."""
         self.instances += 1
         instance = Agent(root=root, output_dir=self.output / str(self.instances), modo="ollama")
         instance.model = PlannedModel(value)
@@ -60,14 +61,14 @@ class BusinessRuleTests(unittest.TestCase):
 
     @staticmethod
     def claims_for(user_id, root=ROOT):
-        """Obtiene los identificadores propios para comprobar aislamiento."""
+        """Busca los siniestros del usuario para comprobar que no se muestren los de otra persona."""
         with (root / "datos/polizas.csv").open(encoding="utf-8-sig", newline="") as stream:
             policies = {p["poliza_id"] for p in csv.DictReader(stream) if p["cliente_id"] == user_id}
         with (root / "datos/siniestros.csv").open(encoding="utf-8-sig", newline="") as stream:
             return {s["siniestro_id"] for s in csv.DictReader(stream) if s["poliza_id"] in policies}
 
     def assert_ticket(self, instance, result):
-        """Comprueba que la derivación exista en el registro local."""
+        """Comprueba que la solicitud de atención se haya guardado en el archivo local."""
         tickets = [h["resultado"] for h in result["herramientas"]
                    if h["nombre"] == "escalar_humano" and not h["resultado"].get("error")]
         self.assertTrue(tickets, result["respuesta"])
@@ -231,7 +232,7 @@ class BusinessRuleTests(unittest.TestCase):
             reader = csv.DictReader(stream)
             fields = reader.fieldnames
             rows = [r for r in reader if r["siniestro_id"] not in owned]
-        self.assertTrue(rows)  # Otros clientes conservan siniestros en el mismo conjunto.
+        self.assertTrue(rows)  # Hay siniestros de otros clientes, pero este usuario no debe poder verlos.
         with path.open("w", encoding="utf-8", newline="") as stream:
             writer = csv.DictWriter(stream, fieldnames=fields)
             writer.writeheader()

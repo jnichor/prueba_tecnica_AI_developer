@@ -1,8 +1,9 @@
-"""Ejecuta los doce casos y conserva respuestas, fuentes y auditoría.
+"""Lee las 12 preguntas de casos_prueba/casos_prueba.json y guarda las respuestas del agente.
+Cada pregunta incluye el rol y el usuario que se usarán en esa prueba.
 
-Se inicia desde la raíz con ``python -m scripts.run_casos --evaluar``.
-Cada caso usa su propia sesión; la evaluación compara las respuestas con los datos.
-"""
+Desde la carpeta principal del proyecto:
+- ``python -m scripts.run_casos`` genera y guarda las respuestas.
+- ``python -m scripts.run_casos --evaluar`` hace lo anterior y después comprueba si las respuestas coinciden con los datos y las condiciones."""
 
 import argparse
 import json
@@ -15,7 +16,12 @@ from seguros.model import load_env
 
 
 def main():
-    """Prepara el modo elegido, atiende el lote y guarda su evaluación si se solicita."""
+    """Lee las opciones del comando y prepara Ollama si se va a usar IA.
+    Luego el agente interpreta cada pregunta, consulta los datos permitidos y responde con sus fuentes.
+    Por ejemplo, CP-01 pregunta por S-5521 usando al cliente C001; la identidad viene del archivo de casos.
+    
+    Guarda todas las respuestas en respuestas.json, dentro de la carpeta de trabajo elegida.
+    Sin --evaluar termina ahí; con --evaluar también guarda los informes que explican qué comprobó y qué casos pasaron."""
     load_env(ROOT / ".env")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--modo", choices=["offline", "ollama"], default=os.getenv("AGENT_MODE", "ollama"))
@@ -41,7 +47,7 @@ def main():
     agent = Agent(root=ROOT, output_dir=args.salida, modo=args.modo, modelo=modelo,
                   fecha_referencia=cases["fecha_referencia"])
     outputs = []
-    # La identidad procede del caso de prueba y se pasa como contexto independiente.
+    # Cada caso trae su usuario; no lo sacamos de lo que dice la pregunta.
     for case in cases["casos"]:
         result = agent.respond(case["mensaje"], {"rol": case["rol"], "usuario_id": case["usuario_id"]})
         outputs.append({"id": case["id"], "consulta": case["mensaje"], **result})

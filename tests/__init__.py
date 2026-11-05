@@ -1,3 +1,2 @@
-"""Pruebas del asistente organizadas por comportamiento y controles de seguridad.
-
-Los escenarios usan archivos temporales y dobles de servicios para evitar efectos externos."""
+"""Reúne las pruebas del agente y de sus reglas.
+Usa archivos de prueba y respuestas preparadas para comprobar el programa sin consultar una IA real."""

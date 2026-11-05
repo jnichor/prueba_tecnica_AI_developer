@@ -1,7 +1,6 @@
-"""Interpreta qué pide el usuario sin consultar expedientes. Agent llama a Planner para
-obtener siete campos JSON; el código verifica que los identificadores y demás datos
-estén respaldados por la pregunta. El modo offline ofrece una interpretación
-programada explícita para pruebas.
+"""Decide qué se está preguntando y qué códigos aparecen en el mensaje. Qwen solo hace
+esa interpretación: no ve expedientes ni condiciones y no escribe la respuesta final.
+Después el programa revisa los datos que Qwen devolvió.
 """
 
 import json
@@ -27,8 +26,8 @@ STRATEGY = "interpretacion_estructurada_y_respuesta_verificada"
 
 
 class PlanError(ValueError):
-    """Indica que el plan no respeta el formato o inventa información. El agente lo
-    maneja sin ejecutar ese plan ni publicar su contenido como respuesta.
+    """Se usa cuando Qwen devuelve datos que no se pueden aceptar. El programa no los
+    ejecuta y pide revisión humana.
     """
 
 
@@ -38,8 +37,8 @@ def normalize(text):
 
 
 def literal_ids(message, prefix):
-    """Extrae códigos completos presentes en el mensaje. Los límites evitan aceptar un
-    código corto que solo aparece dentro de otro identificador.
+    """Busca códigos completos escritos en la pregunta. Por ejemplo, no acepta S-5521 si
+    lo único escrito fue S-55210.
     """
     return re.findall(r"(?<![A-Za-z0-9_-])" + prefix + r"-\d+(?![A-Za-z0-9_-])", message, flags=re.I)
 
@@ -88,8 +87,8 @@ def literal_years(message):
 
 
 def requests_third_party_data(message):
-    """Detecta solicitudes de información de otra persona. No convierte por sí sola a un
-    familiar que participó en un accidente en titular de la consulta.
+    """Comprueba si se están pidiendo datos de otra persona. Que un familiar participe
+    en un accidente no significa que se pidan sus seguros.
     """
     text = normalize(message)
     relatives = r"(?:esposo|esposa|pareja|hermano|hermana|padre|madre|hijo|hija)"
@@ -99,15 +98,14 @@ def requests_third_party_data(message):
 
 
 def self_claim_history_request(message):
-    """Reconoce una petición inequívoca de siniestros propios sin código concreto.
-    Descarta mezclas de titulares para que el historial dependa de la sesión y no de
-    una identidad escrita.
+    """Comprueba si el usuario pide sus propios siniestros sin dar un código. No acepta
+    una mezcla de personas como si fueran solo datos propios.
     """
     text = normalize(message)
     claim = r"(?:siniestros?|reclamos?|reclamacion(?:es)?)"
     if literal_ids(message, "S") or not re.search(rf"\b{claim}\b", text):
         return False
-    # Aquí no se valida ninguna identidad escrita: esa autoridad sigue siendo la sesión.
+    # Para saber quién consulta se usa la sesión, no un nombre escrito aquí.
     if (requests_third_party_data(message)
             or re.search(r"\b(?:c\d+|dni|documento|esposo|esposa|pareja|hermano|hermana|padre|madre|hijo|hija|familia|amigo|amiga|vecino|vecina|terceros?|ella|ellos|ellas|nosotros|nosotras|ustedes)\b", text)
             or re.search(r"\b\d{8}\b|\b(?:otra persona|otro usuario|otro cliente|los suyos|los de)\b", text)
@@ -120,8 +118,8 @@ def self_claim_history_request(message):
 
 
 def own_policy_request(message):
-    """Reconoce que se pide identificar las pólizas propias sin conocer su código.
-    Separa esa solicitud de cobertura, recomendaciones, cambios y datos de terceros.
+    """Reconoce preguntas como cuál es mi póliza sin exigir su código. Las separa de
+    pedidos de cobertura, consejos, cambios o datos ajenos.
     """
     text = normalize(message)
     if (literal_ids(message, "S") or requests_third_party_data(message)
@@ -136,8 +134,8 @@ def own_policy_request(message):
 
 
 def general_coverage_request(message):
-    """Reconoce una pregunta general de cobertura con un ramo explícito y sin evento
-    identificado. Permite resumir el producto sin inventar un choque, robo o cirugía.
+    """Comprueba si se pide un resumen de un seguro identificado. No supone que ocurrió
+    un choque, robo o cirugía si el mensaje no lo dice.
     """
     text = normalize(message)
     return bool(len(supported_branches(message)) == 1
@@ -149,8 +147,8 @@ def general_coverage_request(message):
 
 
 def schema_for_message(message):
-    """Recibe la pregunta y devuelve el esquema JSON permitido para esa consulta. Limita
-    los valores a las entidades presentes en el texto antes de llamar al modelo.
+    """Prepara las reglas sobre los datos que Qwen debe devolver. Solo permite códigos y
+    fechas que aparecen en la pregunta.
     """
     schema = json.loads(json.dumps(PLAN_SCHEMA))
     properties = schema["properties"]
@@ -172,9 +170,12 @@ def schema_for_message(message):
 
 
 def validate_plan(plan, message):
-    """Recibe el JSON del modelo y la pregunta; devuelve un plan validado o lanza
-    PlanError. Rechaza campos extra, códigos inventados y periodos sin respaldo. El
-    plan no contiene identidad, SQL ni una respuesta libre.
+    """Recibe la pregunta original y los datos que devolvió Qwen. Comprueba que no
+    falten campos, que no haya campos extra y que los códigos, años, trimestres y
+    tipos de seguro estén respaldados por el mensaje. Por ejemplo, si el usuario
+    escribió S-5521 y Qwen devuelve S-5522, no acepta ese código aunque exista en los
+    archivos. Devuelve los datos revisados o detiene el paso con un error; nunca
+    acepta que el modelo cambie el usuario o invente una respuesta.
     """
     if not isinstance(plan, dict) or set(plan) != set(PLAN_SCHEMA["required"]):
         raise PlanError("La interpretación contiene campos ausentes o no permitidos.")
@@ -213,8 +214,8 @@ def validate_plan(plan, message):
 
 
 def _unique_object(pairs):
-    """Construye un objeto JSON rechazando claves repetidas. Evita interpretaciones
-    ambiguas donde un mismo campo tenga dos valores.
+    """Rechaza una respuesta de Qwen que repita el mismo campo dos veces. Así no hay dos
+    valores distintos para una sola cosa.
     """
     result = {}
     for key, value in pairs:
@@ -225,9 +226,8 @@ def _unique_object(pairs):
 
 
 def offline_plan(message):
-    """Recibe una pregunta y devuelve un plan mediante reglas programadas. Es un modo
-    elegido explícitamente; nunca sustituye en secreto una llamada a Ollama que
-    falló.
+    """Entiende la pregunta con reglas escritas en el programa. Solo se usa cuando se
+    eligió el modo sin IA; no reemplaza a Qwen a escondidas si falla.
     """
     text = normalize(message)
     plan = {"intent": "aclaracion", "siniestro_id": None, "poliza_id": None,
@@ -265,8 +265,8 @@ def offline_plan(message):
 
 
 class Planner:
-    """Solicita a Qwen únicamente intención y datos limitados. El modelo recibe la
-    pregunta y contexto mínimo de sesión, sin expedientes, artículos ni herramientas.
+    """Pide a Qwen entender la pregunta y devolver los datos necesarios. No le entrega
+    expedientes, artículos ni herramientas para buscar información.
     """
     def __init__(self, model, today=None):
         self.model = model
@@ -274,9 +274,13 @@ class Planner:
         self.attempts = 0
 
     def interpret(self, message, session):
-        """Recibe pregunta y sesión y devuelve un plan validado. Permite una sola
-        corrección automática de formato o validación; los errores de conexión se
-        propagan. Ninguna respuesta libre del modelo se entrega al usuario.
+        """Recibe la pregunta y el rol y código de usuario de la sesión. Pide a Qwen
+        indicar qué se quiere hacer y qué datos aparecen en el mensaje; no le envía
+        expedientes ni condiciones del seguro. Por ejemplo, de ¿Cómo va S-5521? debe
+        obtener consultar estado y el código S-5521. Revisa esos datos antes de
+        devolverlos para que otra parte busque el expediente. Si el formato o los
+        datos no son válidos, pide una sola corrección automática; un error de
+        conexión sigue siendo un error y no activa ese reintento.
         """
         system = (
             "Clasifica una consulta de seguros. SOLO devuelve el objeto JSON del esquema, sin responder al usuario. "

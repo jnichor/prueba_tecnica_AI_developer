@@ -1,6 +1,5 @@
-"""Arranque de los comandos y elección de sus carpetas de trabajo.
-
-Los servicios y el agente se simulan; se comprueba que offline no prepare IA ni sobrescriba salidas publicadas."""
+"""Comprueba que los comandos preparen Ollama cuando corresponde y guarden los archivos en la carpeta correcta.
+El modo offline, sin IA, no debe conectarse a servicios ni sobrescribir las respuestas publicadas."""
 
 from contextlib import ExitStack, redirect_stderr, redirect_stdout
 import io
@@ -18,7 +17,7 @@ from seguros.model import OllamaModel
 
 
 class SetupEntrypointTests(unittest.TestCase):
-    """Orden de preparación y ejecucion de los comandos del proyecto."""
+    """Comprueba en qué orden se preparan los servicios y se ejecutan las preguntas."""
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
@@ -30,7 +29,7 @@ class SetupEntrypointTests(unittest.TestCase):
             encoding="utf-8")
 
     def ejecutar(self, modulo, argumentos, entorno=None, error=None):
-        """Ejecuta un comando con preparación y agente simulados, capturando su salida."""
+        """Ejecuta el comando con respuestas preparadas para esta prueba y recoge lo que imprime."""
         eventos = []
         creado = {}
 

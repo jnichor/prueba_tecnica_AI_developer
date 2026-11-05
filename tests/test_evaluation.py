@@ -1,6 +1,5 @@
-"""Evaluación programada de respuestas correctas y alteradas deliberadamente.
-
-Comprueba hechos, fuentes y prioridades de archivos; incluye protección de la evidencia publicada."""
+"""Comprueba si el evaluador detecta respuestas incorrectas, datos inventados y fuentes que no justifican lo dicho.
+También revisa que los informes nuevos no sobrescriban los resultados publicados."""
 
 import copy
 import io
@@ -23,7 +22,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class EvaluationTests(unittest.TestCase):
-    """Respuestas alteradas para comprobar que el evaluador detecte el cambio."""
+    """Cambia respuestas conocidas para comprobar que el evaluador detecte cada error.
+    Por ejemplo, reemplaza el estado de S-5521 por pagado aunque el dato real sea en evaluación."""
     @classmethod
     def setUpClass(cls):
         cls.baseline = json.loads((ROOT / "tests/fixtures/respuestas_offline.json").read_text(encoding="utf-8"))
@@ -34,7 +34,7 @@ class EvaluationTests(unittest.TestCase):
         self.root = Path(self.directory.name)
 
     def result(self, index, body=None):
-        """Duplica un caso y permite alterar su cuerpo conservando las citas originales."""
+        """Copia una respuesta conocida y permite cambiar su texto. Mantiene las fuentes originales para comprobar si el nuevo texto sigue siendo correcto."""
         result = copy.deepcopy(self.baseline[index - 1])
         if body is not None:
             result["respuesta"] = body + "\n\nFuentes: " + "; ".join(result["fuentes"])
@@ -47,7 +47,7 @@ class EvaluationTests(unittest.TestCase):
 
     def test_citations_cannot_supply_missing_body_facts(self):
         result = self.result(3, "El expediente fue rechazado. Consulta con un asesor.")
-        # La cláusula sigue en la evidencia original, pero no se explica el motivo.
+        # Citar una fuente no basta: la respuesta debe explicar el motivo del rechazo.
         self.assertNotEqual(evaluar(result)[0], "Sí")
 
     def test_false_paid_state_fails_despite_valid_sources(self):

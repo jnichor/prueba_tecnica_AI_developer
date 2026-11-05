@@ -1,1 +1,2 @@
-"""Comandos del proyecto; se ejecutan desde la raíz con ``python -m scripts.<comando>``."""
+"""Reúne los comandos que se ejecutan desde la carpeta principal del proyecto.
+Por ejemplo: ``python -m scripts.run_casos --evaluar``."""

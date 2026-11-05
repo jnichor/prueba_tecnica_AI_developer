@@ -1,10 +1,6 @@
-"""Selecciona evidencia revisable y crea un ZIP con archivos públicos permitidos.
-
-Primero ejecuta los doce casos y su evaluación. Este programa consume esa salida
-local; nunca consulta un modelo, descarga dependencias ni modifica los originales.
-Usa --empaquetar solo después de revisar README.md, DISENO.md y RESULTADOS.md.
-Se ejecuta desde la raíz con ``python -m scripts.preparar_entrega``.
-"""
+"""Copia los resultados revisados en salidas/ y puede reunir los archivos del proyecto en un ZIP.
+Primero debes ejecutar las 12 preguntas y su evaluación; aqui se usan los archivos guardados, sin consultar a Qwen.
+Ejecuta ``python -m scripts.preparar_entrega`` desde la carpeta principal y usa --empaquetar después de revisar los documentos."""
 
 import argparse
 import hashlib
@@ -36,23 +32,28 @@ FALLBACK_MATRIX = """| Regla | Control que debe revisarse | Evidencia disponible
 
 
 def digest(data):
+    """Calcula una huella SHA-256 del contenido. Sirve para comprobar después si un archivo cambió."""
     return hashlib.sha256(data).hexdigest()
 
 
 def read_json(path):
+    """Lee los datos de un archivo JSON, un formato de texto con campos y listas."""
     return json.loads(path.read_text(encoding="utf-8-sig"))
 
 
 def read_jsonl(path):
+    """Lee un archivo JSONL: cada línea contiene un registro separado."""
     return [json.loads(line) for line in path.read_text(encoding="utf-8-sig").splitlines() if line.strip()]
 
 
 def write_json(path, content):
+    """Guarda los datos en un archivo JSON con un formato fácil de leer."""
     path.write_text(json.dumps(content, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def public_path(root, relative):
-    """Rechaza traversal, rutas absolutas, enlaces fuera del proyecto y binarios."""
+    """Revisa la ruta y rechaza los archivos excluidos de la copia pública.
+    Busca señales de claves, correos personales y carpetas personales para evitar copiarlos."""
     relative = str(relative)
     posix = PurePosixPath(relative)
     if not relative or "\\" in relative or ":" in relative or posix.is_absolute() or any(part in {".", ".."} for part in relative.split("/")):
@@ -77,7 +78,9 @@ def public_path(root, relative):
 
 
 def public_files(root):
-    """Enumera únicamente fuentes, comandos y evidencia seleccionada para publicar."""
+    """Devuelve la lista de archivos que se pueden incluir en el ZIP.
+    Incluye código, comandos, pruebas, documentos y los resultados seleccionados de salidas/.
+    La lista actual reune 50 archivos; no copia todo lo que haya en la carpeta del proyecto."""
     paths = list(ROOT_FILES)
     for directory, suffixes in PUBLIC_GROUPS.items():
         paths.extend(path.relative_to(root).as_posix() for path in sorted((root / directory).iterdir())
@@ -90,7 +93,12 @@ def public_files(root):
 
 
 def prepare(root, source):
-    """Copia un lote revisado y sus muestras sin modificar los archivos originales."""
+    """Lee los resultados de una ejecución ya revisada y los copia a salidas/ para compartirlos.
+    Conserva las 12 respuestas y selecciona cinco consultas registradas y el ticket relacionado.
+    
+    Comprueba que las respuestas, la evaluación y los contadores correspondan a la misma ejecución.
+    También guarda huellas de los archivos originales para comprobar después que no cambiaron.
+    Las muestras son datos ficticios de esta prueba; los archivos originales quedan intactos."""
     destination = root / "salidas"
     required = ("respuestas.json", "interactions.jsonl", "tickets.jsonl",
                 "evaluacion_automatica.md", "evaluacion_automatica.json")
@@ -104,7 +112,7 @@ def prepare(root, source):
         raise ValueError("Las respuestas no contienen exactamente los casos del paquete en su orden.")
     if not all(row.get("tokens_medicion_completa") is True for row in responses):
         raise ValueError("La evidencia seleccionada tiene mediciones incompletas.")
-    # Los resúmenes deben coincidir con los contadores reales de la misma ejecución.
+    # Los totales deben coincidir con lo registrado al responder estas 12 preguntas.
     verification = read_json(source / "verificacion.json") if "verificacion.json" in snapshots else None
     automatic = read_json(source / "evaluacion_automatica.json")
     if not automatic.get("todos_cumplen") or (verification is not None and verification.get("casos_manual_correctos") != len(cases)):
@@ -123,7 +131,7 @@ def prepare(root, source):
                           "llm_segundos", "tokens_entrada", "tokens_salida", "tokens_total",
                           "tokens_medicion_completa", "tokens_contabilizados", "total_segundos")
     sample = []
-    # Cada muestra se vincula por consulta, identidad y respuesta, además del caso.
+    # Buscamos el mismo usuario, pregunta y respuesta para no copiar otra consulta.
     for identifier in SAMPLE_IDS:
         response = next(row for row in responses if row["id"] == identifier)
         case = next(row for row in cases if row["id"] == identifier)
@@ -139,7 +147,7 @@ def prepare(root, source):
     if {row["ticket_id"] for row in tickets} != sample_ticket_ids:
         raise ValueError("Falta la evidencia del ticket de escalamiento.")
     destination.mkdir(parents=True, exist_ok=True)
-    # La respuesta se conserva byte por byte, sin reformatearla.
+    # Copiamos las respuestas tal como se guardaron, sin cambiar su texto.
     (destination / "respuestas.json").write_bytes(snapshots["respuestas.json"])
     for name, rows in (("muestra_interacciones.jsonl", sample), ("muestra_tickets.jsonl", tickets)):
         (destination / name).write_text("".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows), encoding="utf-8")
@@ -193,7 +201,12 @@ def prepare(root, source):
 
 
 def package(root):
-    """Genera el ZIP y comprueba sus bytes contra el manifiesto antes de entregarlo."""
+    """Crea un ZIP con los archivos de la lista permitida y una lista de sus huellas SHA-256.
+    Una huella es un valor calculado a partir del contenido: si cambia el archivo, cambia ese valor.
+    Por ejemplo, permite comprobar que respuestas.json dentro del ZIP es el mismo archivo que se revisó.
+    
+    Después abre el ZIP y compara cada archivo con la lista para detectar cambios o archivos que falten.
+    No incluye las claves de .env, los modelos descargados ni los archivos de trabajo de .runtime/."""
     entries = []
     contents = {}
     for relative in public_files(root):
@@ -217,7 +230,10 @@ def package(root):
 
 
 def main():
-    """Prepara evidencia local y, si se pide, empaqueta solo las rutas permitidas."""
+    """Lee --origen para saber dónde están los resultados de la ejecución que quieres preparar.
+    Los revisa y deja una copia seleccionada en salidas/, lista para leer y compartir.
+    Si también indicas --empaquetar, crea un único ZIP con los archivos permitidos.
+    Este comando trabaja con archivos guardados: no vuelve a ejecutar las 12 preguntas ni consulta a Qwen."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--origen", type=Path, default=Path("salidas_ollama_corregido"))
     parser.add_argument("--empaquetar", action="store_true", help="Incluye los documentos finales y genera ZIP y manifiesto local.")

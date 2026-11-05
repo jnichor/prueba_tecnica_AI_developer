@@ -1,7 +1,6 @@
-"""Acceso controlado a los CSV, artículos y tickets locales. Agent y Resolver utilizan
-estas herramientas para obtener evidencia. La sesión se comprueba contra los
-registros de demostración; no hay autenticación real de una persona ni permisos
-tomados del mensaje.
+"""Permite buscar datos, leer condiciones y guardar solicitudes de atención. Antes de
+buscar, limita los registros según el rol y código de usuario elegidos. Esa
+comprobación de la demostración no verifica quién es realmente la persona.
 """
 
 from __future__ import annotations
@@ -24,20 +23,20 @@ _APPEND_LOCK = threading.Lock()
 
 
 def normalize(text: str) -> str:
-    """Normalización de búsqueda; conserva intactos los documentos originales."""
+    """Prepara el texto para buscar sin importar mayúsculas o tildes. No cambia los
+    documentos originales.
+    """
     return "".join(c for c in unicodedata.normalize("NFD", text.lower()) if unicodedata.category(c) != "Mn")
 
 
 class DataStore:
-    """Carga los CSV originales y ofrece consultas de solo lectura sobre las filas
-    permitidas. Cada consulta crea una base temporal con los registros visibles;
-    nunca modifica los archivos originales.
+    """Lee los CSV y permite consultar solo los registros que corresponden al usuario.
+    Cada búsqueda usa una copia en memoria y nunca cambia los archivos originales.
     """
 
     def __init__(self, root: Path, safe_model: bool = False):
-        """Recibe la carpeta del proyecto y carga tablas y encabezados. safe_model
-        permite bloquear además columnas narrativas cuando se necesita esa
-        restricción adicional.
+        """Recibe la carpeta del proyecto y lee los CSV. Una opción adicional permite
+        bloquear textos como la descripción del siniestro cuando hace falta.
         """
         self.safe_model = safe_model
         self.tables = {}
@@ -49,9 +48,11 @@ class DataStore:
                 self.tables[name] = list(reader)
 
     def validate_session(self, session: dict) -> None:
-        """Comprueba que el rol y el identificador existen en los CSV y falla si no
-        coinciden. No verifica contraseña, documento personal ni identidad real de
-        quien escribe.
+        """Recibe el rol y el código de usuario elegidos en la sesión. Busca ese código
+        en el archivo de clientes o de asesores y permite continuar solo si
+        corresponde al rol indicado. Si no coincide, detiene la consulta con un
+        error. Esto no pide contraseña ni demuestra que quien escribe sea realmente
+        esa persona.
         """
         if not isinstance(session, dict):
             raise ValueError("La sesión autenticada es obligatoria.")
@@ -63,9 +64,13 @@ class DataStore:
             raise ValueError("Identidad de sesión no reconocida.")
 
     def visible_tables(self, session: dict) -> dict:
-        """Recibe la sesión y devuelve sus filas accesibles. Para un cliente relaciona
-        pólizas y siniestros por sus identificadores; el mensaje no amplía ese
-        acceso.
+        """Recibe el usuario que consulta y prepara tres listas: clientes, pólizas y
+        siniestros permitidos. Para un cliente, primero busca sus pólizas y luego los
+        siniestros que pertenecen a esas pólizas. Ejemplo con los archivos del
+        proyecto: para C001 puede seleccionar POL-1001 y, por esa póliza, S-5521; los
+        registros de otros clientes quedan fuera. Solo esas listas se ponen a
+        disposición de la búsqueda de datos. Un asesor tiene el acceso que
+        corresponde a su rol registrado. Devuelve las listas sin cambiar los CSV.
         """
         self.validate_session(session)
         if session["rol"] == "asesor":
@@ -77,9 +82,14 @@ class DataStore:
         return {"clientes": clients, "polizas": policies, "siniestros": claims}
 
     def query(self, sql: str, parameters: list, session: dict) -> dict:
-        """Recibe SQL, parámetros simples y sesión; devuelve filas, fuentes y señal de
-        truncamiento. Filtra antes de consultar y aplica límites, funciones
-        permitidas y bloqueo de escrituras; la base temporal se cierra al terminar.
+        """Recibe una búsqueda de datos escrita en SQL, sus valores y el usuario que
+        consulta. Primero obtiene solo los registros permitidos para ese usuario y
+        los pone en una copia en memoria para buscar allí. Por ejemplo, con C001
+        puede buscar S-5521, pero no obtiene datos de otro cliente por conocer su
+        código. Bloquea cambios y limita el trabajo y la cantidad de resultados para
+        que la búsqueda no se prolongue sin control. Devuelve lo encontrado, de dónde
+        salió y un aviso si había más resultados de los que podía mostrar; los CSV
+        originales no cambian.
         """
         visible = self.visible_tables(session)
         if not isinstance(sql, str) or not sql.strip() or len(sql) > 12000:
@@ -90,8 +100,8 @@ class DataStore:
             raise ValueError("Los parámetros SQL deben ser valores simples.")
         used_tables = set()
         with closing(sqlite3.connect(":memory:")) as connection:
-            # Python 3.11 permite limitar recursos de SQLite. En Python 3.10
-            # siguen vigentes los límites de texto, funciones y operaciones de abajo.
+            # Python 3.11 permite poner límites extra al buscador de datos.
+            # En Python 3.10 se mantienen las demás protecciones de abajo.
             if hasattr(connection, "setlimit"):
                 connection.setlimit(sqlite3.SQLITE_LIMIT_LENGTH, 1_000_000)
                 connection.setlimit(sqlite3.SQLITE_LIMIT_SQL_LENGTH, 12_000)
@@ -119,11 +129,11 @@ class DataStore:
             def authorize(action, first, second, database, trigger):
                 if action == sqlite3.SQLITE_SELECT:
                     return sqlite3.SQLITE_OK
-                # COUNT(*) puede informar database=None al leer sin una columna concreta.
+                # Al contar filas, la base de datos puede no indicar su nombre.
                 if action == sqlite3.SQLITE_READ and first in TABLE_KEYS and database in ("main", None):
-                    # Se comprueba la columna de origen y no su alias SQL. Así también
-                    # se bloquean consultas, concatenaciones, filtros y funciones
-                    # que intenten extraer texto narrativo restringido con otro nombre.
+                    # Revisa el nombre real de la columna, aunque la consulta le ponga otro.
+                    # Así se impide sacar textos como la descripción con otro nombre,
+                    # uniéndolos a otros textos o escondiéndolos dentro de otra consulta.
                     if self.safe_model and first == "siniestros" and second in {"descripcion", "motivo_rechazo"}:
                         return sqlite3.SQLITE_DENY
                     used_tables.add(first)
@@ -133,7 +143,7 @@ class DataStore:
                 return sqlite3.SQLITE_DENY
 
             connection.set_authorizer(authorize)
-            # Limitar filas no basta para detener cruces costosos o consultas recursivas.
+            # Mostrar pocas filas no basta si buscarlas toma demasiado trabajo.
             budget = [0]
 
             def progress():
@@ -163,14 +173,13 @@ class DataStore:
 
 
 class Tools:
-    """Expone tres herramientas: consultar datos, buscar artículos y registrar una
-    derivación. Devuelve resultados con fuentes o errores controlados, sin aprobar
-    pagos ni enviar mensajes externos.
+    """Ofrece tres acciones: buscar datos, buscar condiciones y guardar un ticket local.
+    No aprueba pagos ni envía mensajes a personas o servicios externos.
     """
 
     def __init__(self, root: Path | None = None, output_dir: Path | None = None, safe_model: bool = False):
-        """Recibe rutas y opciones de acceso a datos. Carga los artículos del paquete
-        para buscarlos sin alterar los condicionados ni enviarlos al modelo.
+        """Recibe las carpetas de trabajo y lee los datos y artículos disponibles. No
+        cambia los documentos ni los envía a Qwen.
         """
         self.root = Path(root) if root is not None else ROOT
         self.output_dir = Path(output_dir) if output_dir is not None else self.root / "salidas_offline"
@@ -182,9 +191,12 @@ class Tools:
                 self.fragments.append({"documento": f"condicionados/{path.name}", "articulo": match[1], "texto": f"Artículo {match[1]}. {match[2]}\n{match[3].strip()}"})
 
     def call(self, name: str, arguments: dict, session: dict) -> dict:
-        """Recibe nombre, argumentos y sesión y ejecuta una de las tres herramientas
-        permitidas. Valida el contexto y devuelve los errores como datos para que el
-        agente los audite.
+        """Recibe el nombre de la herramienta, los datos que necesita y el usuario que
+        consulta. Comprueba el usuario y permite solo buscar datos, buscar
+        condiciones o guardar un ticket. Por ejemplo, consulta_datos busca los
+        registros permitidos y buscar_condicionados trae los artículos del seguro.
+        Devuelve el resultado o un error para que el programa guarde qué ocurrió; no
+        permite agregar herramientas desde la pregunta.
         """
         try:
             self.data.validate_session(session)
@@ -208,8 +220,8 @@ class Tools:
             return {"error": "No se pudo registrar el ticket local. No se confirma el escalamiento.", "fuentes": []}
 
     def validate_session(self, session: dict) -> bool:
-        """Devuelve si el rol y el ID están registrados para esta demostración. Es una
-        comprobación de sesión simulada, no un inicio de sesión de producción.
+        """Devuelve si el rol y el código de usuario están registrados. Esto no es una
+        verificación de identidad real para atender clientes.
         """
         try:
             self.data.validate_session(session)
@@ -218,17 +230,16 @@ class Tools:
             return False
 
     def search(self, query: str, branch: str | None = None) -> dict:
-        """Recibe texto, ramo opcional y sesión; devuelve artículos originales y sus
-        referencias. Prioriza documentos específicos y conserva la regla de
-        prevalencia sin inventar cláusulas.
+        """Busca artículos del seguro pedido y devuelve su texto y de dónde salió. Da
+        prioridad a las condiciones específicas del seguro sin inventar reglas.
         """
         if not isinstance(query, str) or not query.strip() or len(query) > 4000:
             raise ValueError("La búsqueda requiere texto de hasta 4000 caracteres.")
         if branch not in (None, "general", "vehicular", "salud", "vida"):
             raise ValueError("Ramo no reconocido.")
         normalized_query = normalize(query)
-        # Only explicit article markers or prefixed clause references count as
-        # article selectors. Ordinary '6 meses' / '72 horas' remain keywords.
+        # Solo elige un artículo si se escribe 'artículo' o una cláusula.
+        # Números como '6 meses' o '72 horas' no eligen un artículo.
         article_numbers = set(re.findall(r"\b(?:articulo|art\.?)\s+(\d+)\b", normalized_query))
         references = set()
         for match in re.finditer(r"\b(vehicular|salud|vida|condiciones\s+generales)[\s,:-]*(?:(?:articulo|art\.?|clausula)\s*)?(\d+)\.\d+\b", normalized_query):
@@ -269,9 +280,10 @@ class Tools:
         return {"fragmentos": fragments, "fuentes": [f'{f["documento"]}, Artículo {f["articulo"]}' for f in fragments], "datos_no_confiables": True}
 
     def escalate(self, reason: str, detail: str, session: dict) -> dict:
-        """Recibe motivo, detalle y sesión y escribe un ticket en un archivo local.
-        Devuelve el identificador y avisa que no se ha enviado a un asesor ni a un
-        servicio externo.
+        """Recibe el motivo de la consulta, una explicación y el usuario. Guarda esos
+        datos en un archivo local y crea un número de ticket para poder encontrarlo
+        después. Devuelve ese número y un aviso claro: todavía no se ha enviado a
+        ningún asesor ni servicio externo.
         """
         if not isinstance(reason, str) or not reason.strip() or len(reason) > 1000:
             raise ValueError("El motivo debe contener entre 1 y 1000 caracteres.")
