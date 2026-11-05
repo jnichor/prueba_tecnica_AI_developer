@@ -60,6 +60,37 @@ class ResolverTests(unittest.TestCase):
         self.assertNotIn("S-5521", answer)
         self.assertTrue(all("descripcion" not in args.get("sql", "") for name, args, _ in self.trace))
 
+    def test_what_can_i_consult_returns_help_without_policy_lookup(self):
+        for message in ("que puedo consultar", "qué puedo preguntarte", "qué te puedo preguntar"):
+            with self.subTest(message=message):
+                self.trace.clear()
+                answer = self.resolver.resolve({"intent": "aclaracion"}, message, self.session)
+                self.assertIn("Puedo ayudarte", answer)
+                self.assertNotIn("POL-", answer)
+                self.assertEqual([name for name, _, _ in self.trace], ["buscar_condicionados"] * 3)
+                self.assertEqual([args["consulta"] for _, args, _ in self.trace], ["articulo 5", "articulo 9", "articulo 10"])
+
+    def test_general_help_describes_the_channel_without_looking_up_customer_data(self):
+        for intent in ("ayuda", "aclaracion"):
+            with self.subTest(intent=intent):
+                self.trace.clear()
+                answer = self.resolver.resolve({"intent": intent}, "de que puedes darme informacion", self.session)
+                self.assertIn("Puedo ayudarte", answer)
+                self.assertIn("pólizas", answer)
+                self.assertNotIn("POL-", answer)
+                self.assertNotIn("S-5521", answer)
+                self.assertEqual([name for name, _, _ in self.trace], ["buscar_condicionados"] * 3)
+                self.assertEqual([args["consulta"] for _, args, _ in self.trace], ["articulo 5", "articulo 9", "articulo 10"])
+
+    def test_advisor_help_uses_the_session_role_and_supports_other_help_phrasings(self):
+        answer = self.resolver.resolve({"intent": "ayuda"}, "Describe tus funciones disponibles",
+                                       {"rol": "asesor", "usuario_id": "ASE01"})
+        self.assertIn("trimestre", answer)
+        self.assertNotIn("consulta_datos", [name for name, _, _ in self.trace])
+        self.trace.clear()
+        answer = self.resolver.resolve({"intent": "ayuda"}, "Soy asesor. ¿Qué puedes hacer?", self.session)
+        self.assertNotIn("trimestre", answer)
+
     def test_own_history_accepts_exact_reported_phrases_and_variants(self):
         messages = ("¿he tenido algun siniestro?", "Yo he tenido algun siniestro?",
                     "¿Cuáles son mis siniestros?", "cuales son mis siniestros", "Quiero ver mi historial de siniestros")

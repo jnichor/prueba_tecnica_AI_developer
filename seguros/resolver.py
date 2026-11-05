@@ -9,7 +9,7 @@ from collections import Counter
 from datetime import date, timedelta
 
 from .tools import normalize
-from .planning import (literal_ids, literal_quarters, literal_years,
+from .planning import (literal_ids, literal_quarters, literal_years, general_help_request,
                        general_coverage_request, own_policy_request,
                        requests_third_party_data, self_claim_history_request,
                        supported_branches, supported_events)
@@ -148,6 +148,8 @@ class Resolver:
         intent = plan.get("intent") if isinstance(plan, dict) else None
         if not isinstance(intent, str):
             return self._escalate("No pude interpretar una consulta válida y no puedo confirmar información.", session)
+        if intent == "ayuda" or (intent == "aclaracion" and general_help_request(message)):
+            return self._help(session)
         if intent == "asesoria":
             return self._advice(message, session)
         if intent == "operacion_no_permitida":
@@ -183,6 +185,30 @@ class Resolver:
         if intent in {"cobertura", "aclaracion"}:
             return self._coverage(plan, message, session)
         return self._escalate("No puedo resolver esa solicitud dentro del alcance de consultas de pólizas y siniestros. No puedo confirmar información sin una consulta válida.", session, "Consulta fuera de alcance o interpretación no válida")
+
+    def _help(self, session):
+        """Explica qué se puede consultar sin buscar datos de ningún cliente.
+        Lee las reglas del canal para respaldar sus límites. El rol se toma de la
+        sesión, no de frases como soy asesor escritas dentro de la pregunta.
+        """
+        for number, clause in (("5", "5.1"), ("9", "9.2"), ("10", "10.3")):
+            article, _ = self._article("general", number, session)
+            if not self._clause(article, clause):
+                self.policy_sources = [NO_INVENT]
+                return "No pude recuperar las reglas de este canal. Solicita una revisión por un canal de atención."
+        advisor = session["rol"] == "asesor"
+        self.policy_sources = [PRIVACY]
+        policies = "Consultar pólizas, productos y vigencias autorizados" if advisor else "Ver tus pólizas, productos y vigencias"
+        claims = "Consultar expedientes autorizados, su estado y motivo de rechazo" if advisor else "Consultar tus siniestros, su estado y motivo de rechazo"
+        lines = ["Puedo ayudarte a:", "- " + policies + ".", "- " + claims + ".",
+                 "- Explicar coberturas y condiciones del seguro.",
+                 "- Registrar un ticket local para revisión; no envía un aviso automático."]
+        if advisor:
+            lines.append("- Contar rechazos por ramo, trimestre y año.")
+        lines.append("Por ejemplo: «¿Qué seguros tengo?» o «Quiero consultar un siniestro; indicaré su código»." if not advisor
+                     else "Para un expediente indica su código; para contar rechazos, el ramo, trimestre y año.")
+        lines.append("Solo muestro información permitida para tu sesión. No apruebo pagos ni cambios, ni doy recomendaciones médicas, legales o de inversión.")
+        return "\n".join(lines)
 
     def _policies(self, plan, message, session):
         """Busca las pólizas que puede ver ese usuario. Las muestra con su producto,

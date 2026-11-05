@@ -13,7 +13,8 @@ from seguros.agent import Agent
 from seguros.model import ModelError
 from seguros.planning import (PLAN_SCHEMA, STRATEGY, PlanError, Planner, offline_plan,
                                validate_plan, schema_for_message, self_claim_history_request,
-                               requests_third_party_data, own_policy_request, general_coverage_request)
+                               requests_third_party_data, own_policy_request, general_coverage_request,
+                               general_help_request)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -50,6 +51,46 @@ class FakeModel:
 
 class PlanValidationTests(unittest.TestCase):
     """Comprueba que los códigos y campos recibidos se puedan usar para consultar datos."""
+    def test_questions_about_what_i_can_ask_are_general_help(self):
+        for message in ("que puedo consultar", "¿Qué puedo preguntarte?", "¿Qué te puedo preguntar?",
+                        "¿Sobre qué puedo consultar?", "Hola, ¿qué puedo consultar aquí?"):
+            with self.subTest(message=message):
+                self.assertTrue(general_help_request(message))
+                parsed = offline_plan(message)
+                self.assertEqual(parsed["intent"], "ayuda")
+                self.assertEqual(schema_for_message(message)["properties"]["intent"]["enum"], ["ayuda"])
+                self.assertEqual(validate_plan(parsed, message), parsed)
+
+    def test_what_i_can_ask_does_not_override_a_concrete_topic(self):
+        for message in ("¿Qué puedo consultar sobre S-5521?", "¿Qué puedo consultar sobre mi seguro vehicular?",
+                        "¿Qué puedo preguntar sobre un choque?", "¿Qué puedo consultar sobre mi esposo?",
+                        "¿Qué puedo consultar para invertir?", "¿Qué puedo consultar sobre maternidad?",
+                        "¿Qué puedo preguntar sobre mis pólizas?", "¿Qué puedo consultar y modificar?"):
+            with self.subTest(message=message):
+                self.assertFalse(general_help_request(message))
+
+    def test_general_capability_questions_have_their_own_intent(self):
+        for message in ("de que puedes darme informacion", "¿Qué puedes hacer?",
+                        "¿Cómo puedes ayudarme?", "¿En qué me puedes ayudar?",
+                        "¿Qué información me puedes dar?", "¿Qué temas puedo consultar?",
+                        "¿En qué puedes ayudarme con mis seguros?"):
+            with self.subTest(message=message):
+                self.assertTrue(general_help_request(message))
+                parsed = offline_plan(message)
+                self.assertEqual(parsed["intent"], "ayuda")
+                self.assertEqual(schema_for_message(message)["properties"]["intent"]["enum"], ["ayuda"])
+                self.assertEqual(len(parsed), 7)
+
+    def test_help_detection_does_not_take_over_specific_insurance_questions(self):
+        for message in ("¿Puedes decirme el estado de S-5521?", "¿Qué seguros tengo?",
+                        "Dime la cobertura vehicular", "¿Cuánto me cubre?",
+                        "¿En qué puedes ayudarme si chocó mi auto?", "¿Qué puedes hacer por POL-1001?",
+                        "¿Cómo puedes ayudarme a invertir en un fondo mutuo?",
+                        "¿Qué puedes hacer para ver los seguros de otra persona?"):
+            with self.subTest(message=message):
+                self.assertFalse(general_help_request(message))
+                self.assertNotEqual(offline_plan(message)["intent"], "ayuda")
+
     def test_own_policy_discovery_does_not_need_a_policy_code(self):
         for message in ("dime cual es mi poliza", "¿Cuál es mi póliza?", "Muéstrame mis pólizas",
                         "¿Qué seguros tengo?", "Quiero consultar mis seguros", "Listar pólizas a mi nombre"):

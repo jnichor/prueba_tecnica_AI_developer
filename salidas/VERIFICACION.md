@@ -8,7 +8,7 @@ Revisión de contenido con asistencia de Codex contra los CSV, los artículos y 
 - Tokens: 5,349 de entrada + 513 de salida = 5,862.
 - Tiempo acumulado de inferencia: 32.419 segundos.
 - Suite de regresión registrada: 216 pruebas aprobadas.
-- Comprobación de consultas propias (4 de noviembre): 232 pruebas aprobadas y 12 casos revalidados tras reconocer «los seguros que tengo». Las cifras de la ejecución histórica se conservan.
+- Comprobación de ayuda y consultas (4 de noviembre): 241 pruebas aprobadas y 12 casos revalidados; la ayuda no consulta datos personales. Las cifras de la ejecución histórica se conservan.
 
 ## Matriz de las ocho reglas
 

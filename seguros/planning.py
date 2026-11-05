@@ -8,7 +8,7 @@ import re
 import unicodedata
 from datetime import date
 
-INTENTS = ("estado_siniestro", "motivo_rechazo", "historial_siniestros", "consultar_polizas", "cobertura", "rechazos_trimestre",
+INTENTS = ("ayuda", "estado_siniestro", "motivo_rechazo", "historial_siniestros", "consultar_polizas", "cobertura", "rechazos_trimestre",
            "asesoria", "operacion_no_permitida", "consulta_tercero", "aclaracion", "fuera_de_alcance")
 PLAN_SCHEMA = {
     "type": "object", "properties": {
@@ -150,6 +150,32 @@ def general_coverage_request(message):
                 and re.search(r"\b(?:cual(?:es)?\s+(?:es|son)\s+(?:su|la|mi|sus|las|mis)\s+coberturas?|que\s+(?:me\s+)?cubre\s+(?:mi|el)\s+seguro|coberturas?\s+(?:de|tiene|incluye))\b", text))
 
 
+def general_help_request(message):
+    """Reconoce que se pregunta para qué sirve el asistente, no por un expediente.
+    Por ejemplo, qué puedes hacer pide una explicación, no las pólizas del usuario.
+    Los códigos y eventos concretos siguen su búsqueda normal.
+    "Qué puedo consultar" pregunta por las opciones del usuario; "qué puedes hacer"
+    pregunta por el asistente. Ambas formas piden ayuda si no nombran un caso concreto.
+    """
+    text = normalize(message)
+    if (literal_ids(message, "S") or literal_ids(message, "POL")
+            or supported_branches(message) or supported_events(message) != {"desconocido"}
+            or requests_third_party_data(message)
+            or re.search(r"\b(?:c\d+|dni|esposo|esposa|pareja|hermano|hermana|padre|madre|hijo|hija|otra persona|otro cliente|otro usuario|los suyos|las suyas)\b", text)
+            or re.search(r"\b(?:aprueb\w*|aprob\w*|actualiz\w*|modific\w*|elimin\w*|borr\w*|invert\w*|inversion\w*|recomiend\w*|aconsej\w*|demand\w*|legal|juridic\w*|fondo\s+mutuo|asesoria|financier\w*)\b", text)):
+        return False
+    patterns = (
+        r"\b(?:de|sobre)\s+que\s+(?:me\s+)?puedes\s+(?:dar(?:me)?|brindar(?:me)?|proporcionar(?:me)?)\s+informacion\b",
+        r"\bque\s+informacion\s+(?:me\s+)?puedes\s+(?:dar(?:me)?|brindar(?:me)?|proporcionar(?:me)?|ofrecer(?:me)?)\b",
+        r"\bque\s+puedes\s+(?:hacer|explicar|informar)\b",
+        r"\b(?:como|en\s+que)\s+(?:me\s+)?puedes\s+(?:ayudar(?:me)?|orientar(?:me)?)\b",
+        r"\bque\s+(?:temas|consultas|cosas)\s+puedo\s+(?:consultar|preguntar|hacer)\b",
+        r"\b(?:sobre\s+)?que\s+(?:te\s+)?puedo\s+(?:consultar(?:te)?|preguntar(?:te)?)(?:\s+(?:aqui|contigo|en\s+este\s+(?:chat|asistente)))?\s*[?!.]*\s*$",
+        r"\b(?:cuales\s+son\s+tus\s+(?:funciones|capacidades)|para\s+que\s+sirves)\b",
+    )
+    return any(re.search(pattern, text) for pattern in patterns)
+
+
 def schema_for_message(message):
     """Prepara las reglas sobre los datos que Qwen debe devolver. Solo permite códigos y
     fechas que aparecen en la pregunta.
@@ -162,7 +188,9 @@ def schema_for_message(message):
     properties["evento"]["enum"] = sorted(supported_events(message))
     properties["trimestre"]["enum"] = sorted(literal_quarters(message)) + [None]
     properties["anio"]["enum"] = sorted(literal_years(message)) + [None]
-    if self_claim_history_request(message):
+    if general_help_request(message):
+        properties["intent"]["enum"] = ["ayuda"]
+    elif self_claim_history_request(message):
         properties["intent"]["enum"] = ["historial_siniestros"]
     elif own_policy_request(message):
         properties["intent"]["enum"] = ["consultar_polizas"]
@@ -185,11 +213,13 @@ def validate_plan(plan, message):
         raise PlanError("La interpretación contiene campos ausentes o no permitidos.")
     if plan["intent"] not in INTENTS:
         raise PlanError("La intención no está permitida.")
-    if self_claim_history_request(message) and plan["intent"] not in {"historial_siniestros", "estado_siniestro"}:
+    if general_help_request(message) and plan["intent"] != "ayuda":
+        raise PlanError("La pregunta pide conocer las funciones del asistente, no consultar registros personales.")
+    if plan["intent"] != "ayuda" and self_claim_history_request(message) and plan["intent"] not in {"historial_siniestros", "estado_siniestro"}:
         raise PlanError("La consulta pide registros propios; no corresponde interpretarla como información de otra persona.")
-    if own_policy_request(message) and plan["intent"] != "consultar_polizas":
+    if plan["intent"] != "ayuda" and own_policy_request(message) and plan["intent"] != "consultar_polizas":
         raise PlanError("La consulta pide identificar pólizas propias; no requiere un evento ni información de otra persona.")
-    if general_coverage_request(message) and plan["intent"] != "cobertura":
+    if plan["intent"] != "ayuda" and general_coverage_request(message) and plan["intent"] != "cobertura":
         raise PlanError("El mensaje pide la cobertura general del ramo indicado, sin un evento concreto.")
     if plan["intent"] == "historial_siniestros" and literal_ids(message, "S"):
         raise PlanError("El mensaje identifica un expediente concreto; corresponde consultar ese código.")
@@ -252,6 +282,8 @@ def offline_plan(message):
     elif (any(word in text for word in ("fondo mutuo", "invertir", "inversion", "me conviene", "demandar", "medicamento", "diagnostico"))
           or re.search(r"\b(?:recomiend\w*|recomendacion\w*|aconsej\w*)\b", text)):
         plan["intent"] = "asesoria"
+    elif general_help_request(message):
+        plan["intent"] = "ayuda"
     elif "rechaz" in text and ("cuantos" in text or "trimestre" in text):
         plan["intent"] = "rechazos_trimestre"
         quarters, years = literal_quarters(message), literal_years(message)
@@ -296,6 +328,7 @@ class Planner:
             "ramo solo si el mensaje lo identifica (auto/vehículo=vehicular, operación/cirugía=salud, seguro de vida=vida). "
             "evento: choque para colisión, robo para robo, cirugia_programada solo si dice cirugía/operación programada; "
             "si no se identifica usa desconocido. Nunca deduzcas ramo o evento de un identificador. "
+            "ayuda para preguntar qué funciones o temas puede atender el asistente, por ejemplo 'de qué puedes darme información'; no pide consultar pólizas ni expedientes. "
             "Para '¿cuánto me cubre?' sin más datos, intent=aclaracion, ramo=null y evento=desconocido. "
             "historial_siniestros para preguntar por siniestros propios sin conocer sus códigos: "
             "'he tenido algún siniestro', 'tengo siniestros' o 'muéstrame mis siniestros'. "
