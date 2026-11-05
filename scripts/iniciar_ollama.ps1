@@ -7,7 +7,7 @@ $projectRoot = Split-Path -Path $PSScriptRoot -Parent
 # Entramos a la carpeta principal para que Python encuentre los comandos de scripts/.
 Push-Location -LiteralPath $projectRoot
 try {
-    & python -m scripts.run_casos --modo ollama --solo-preparar
+    & python -m scripts.run_casos --solo-preparar
     $prepareExitCode = $LASTEXITCODE
 }
 finally {

@@ -80,7 +80,7 @@ def public_path(root, relative):
 def public_files(root):
     """Devuelve la lista de archivos que se pueden incluir en el ZIP.
     Incluye código, comandos, pruebas, documentos y los resultados seleccionados de salidas/.
-    La lista actual reune 50 archivos; no copia todo lo que haya en la carpeta del proyecto."""
+    Esta lista no copia todo lo que haya en la carpeta del proyecto."""
     paths = list(ROOT_FILES)
     for directory, suffixes in PUBLIC_GROUPS.items():
         paths.extend(path.relative_to(root).as_posix() for path in sorted((root / directory).iterdir())
@@ -88,7 +88,7 @@ def public_files(root):
     paths.extend("salidas/" + name for name in DELIVERY_FILES)
     if (root / "salidas/CONSULTAS_HISTORIAL.md").is_file():
         paths.append("salidas/CONSULTAS_HISTORIAL.md")
-    paths.append("tests/fixtures/respuestas_offline.json")
+    paths.append("tests/fixtures/respuestas_pruebas.json")
     return sorted(set(paths))
 
 

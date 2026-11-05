@@ -22,7 +22,7 @@ def load_env(path: Path) -> None:
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
                 key, value = line.split("=", 1)
-                if key.strip() in {"AGENT_MODE", "OLLAMA_MODEL", "OLLAMA_BASE_URL"}:
+                if key.strip() in {"OLLAMA_MODEL", "OLLAMA_BASE_URL"}:
                     os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
 
 

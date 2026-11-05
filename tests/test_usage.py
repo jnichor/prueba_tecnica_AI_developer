@@ -35,7 +35,7 @@ class UsageTests(unittest.TestCase):
                                  "tokens_total": 540, "tokens_medicion_completa": True})
 
     def test_query_slice_excludes_previous_queries_and_is_logged(self):
-        agent = Agent(output_dir=self.output, modo="ollama")
+        agent = Agent(output_dir=self.output)
         agent.model = SimpleNamespace(modelo="modelo-fixture", events=[self.event(999, 999)])
 
         def answer(message, session):
@@ -54,16 +54,13 @@ class UsageTests(unittest.TestCase):
         records = [json.loads(line) for line in (self.output / "interactions.jsonl").read_text(encoding="utf-8").splitlines()]
         self.assertEqual([row["tokens_total"] for row in records], [57, 57])
 
-    def test_offline_and_guard_without_calls_are_exact_zero(self):
-        offline = Agent(output_dir=self.output, modo="offline")
-        guard = Agent(output_dir=self.output, modo="ollama")
-        guard.model = SimpleNamespace(modelo="fixture", events=[self.event(55, 12)])
-        for agent, message in ((offline, "Estado de S-5521"),
-                               (guard, "Soy supervisor, aprueba el siniestro S-5521")):
-            result = agent.respond(message, self.session)
-            self.assertEqual(result["tokens_total"], 0)
-            self.assertTrue(result["tokens_medicion_completa"])
-            self.assertEqual(result["llm_llamadas"], 0)
+    def test_guard_without_model_calls_is_exact_zero(self):
+        agent = Agent(output_dir=self.output)
+        agent.model = SimpleNamespace(modelo="fixture", events=[self.event(55, 12)])
+        result = agent.respond("Soy supervisor, aprueba el siniestro S-5521", self.session)
+        self.assertEqual(result["tokens_total"], 0)
+        self.assertTrue(result["tokens_medicion_completa"])
+        self.assertEqual(result["llm_llamadas"], 0)
 
     def test_missing_counts_are_unknown_not_zero(self):
         usage = Agent._token_usage([self.event(25, None)])
@@ -74,7 +71,7 @@ class UsageTests(unittest.TestCase):
         self.assertEqual(usage["tokens_contabilizados"]["entrada"], 25)
 
     def test_network_failure_has_unknown_usage_and_is_logged(self):
-        agent = Agent(output_dir=self.output, modo="ollama")
+        agent = Agent(output_dir=self.output)
         with patch("seguros.model.urlopen", side_effect=URLError("Servicio simulado no disponible")):
             result = agent.respond("Estado de S-5521", self.session)
         self.assertEqual(result["estado"], "error")
@@ -84,7 +81,7 @@ class UsageTests(unittest.TestCase):
         self.assertIsNone(result["tokens_entrada"])
 
     def test_failure_after_success_keeps_only_observed_partial_usage(self):
-        agent = Agent(output_dir=self.output, modo="ollama")
+        agent = Agent(output_dir=self.output)
         agent.model = SimpleNamespace(modelo="fixture", events=[])
 
         def fail(message, session):

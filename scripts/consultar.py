@@ -3,7 +3,6 @@ El usuario elegido se mantiene, pero cada pregunta empieza sin recordar las ante
 Ejecuta ``python -m scripts.consultar`` desde la carpeta principal e indica el rol y el usuario."""
 
 import argparse
-import os
 from pathlib import Path
 
 from seguros.agent import Agent, ROOT
@@ -45,23 +44,20 @@ def main():
     query_mode = parser.add_mutually_exclusive_group()
     query_mode.add_argument("--mensaje", help="Consulta única; si se omite, abre la consola.")
     query_mode.add_argument("--interactivo", action="store_true", help="Consultas independientes con la misma sesión simulada.")
-    parser.add_argument("--modo", choices=["offline", "ollama"], default=os.getenv("AGENT_MODE", "ollama"))
     parser.add_argument("--modelo", default=None)
     parser.add_argument("--salida", type=Path, default=None, help="Carpeta de logs y tickets de esta ejecución.")
     args = parser.parse_args()
-    modelo = args.modelo
-    if args.modo == "ollama":
-        try:
-            preparado = ensure_ollama(modelo=args.modelo, root=ROOT)
-            modelo = preparado["modelo"]
-        except SetupError as exc:
-            print(f"Preparación falló: {exc}")
-            return 1
+    try:
+        preparado = ensure_ollama(modelo=args.modelo, root=ROOT)
+        modelo = preparado["modelo"]
+    except SetupError as exc:
+        print(f"Preparación falló: {exc}")
+        return 1
     # El mensaje puede pedir algo, pero no puede cambiar esta identidad.
     session = {"rol": args.rol, "usuario_id": args.usuario}
     try:
-        agent = Agent(root=ROOT, output_dir=args.salida or ROOT / ("salidas_ollama_corregido" if args.modo == "ollama" else "salidas_offline"),
-                      modo=args.modo, modelo=modelo)
+        agent = Agent(root=ROOT, output_dir=args.salida or ROOT / "salidas_ollama_corregido",
+                      modelo=modelo)
         if not agent.tools.validate_session(session):
             print("La sesión simulada no es válida. Verifica el rol y el identificador.")
             return 1

@@ -24,7 +24,7 @@ class InteractiveTests(unittest.TestCase):
     def response(**extra):
         """Prepara una respuesta y sus medidas para mostrarlas en la consola."""
         return {"respuesta": "En evaluación.\n\nFuentes: siniestros:S-5521", "estado": "ok",
-                "modo": "offline", "modelo": None, "tokens_entrada": 0,
+                "modo": "ollama", "modelo": "fixture", "tokens_entrada": 0,
                 "tokens_salida": 0, "tokens_total": 0, "tokens_medicion_completa": True,
                 "total_segundos": 0.01, **extra}
 
@@ -34,7 +34,7 @@ class InteractiveTests(unittest.TestCase):
         agent.tools.validate_session.return_value = True
         agent.respond.side_effect = answers if answers is not None else lambda message, session: self.response()
         stdout = io.StringIO()
-        flags = flags if flags is not None else ["--modo", "offline", "--interactivo"]
+        flags = flags if flags is not None else ["--interactivo"]
         argv = ["scripts/consultar.py", "--rol", "cliente", "--usuario", "C001", "--salida", str(self.output), *flags]
         with ExitStack() as stack:
             stack.enter_context(patch.dict(os.environ, {}, clear=True))
@@ -58,19 +58,19 @@ class InteractiveTests(unittest.TestCase):
         self.assertIs(agent.respond.call_args_list[0].args[1], agent.respond.call_args_list[1].args[1])
         constructor.assert_called_once()
         self.assertEqual(constructor.call_args.kwargs["output_dir"], self.output)
-        bootstrap.assert_not_called()
+        bootstrap.assert_called_once()
         self.assertIn("sin memoria", text)
         self.assertEqual(text.count("Tokens: entrada 0"), 2)
         self.assertIn("Fuentes: siniestros:S-5521", text)
 
     def test_ollama_bootstraps_once_for_multiple_queries(self):
-        code, _, agent, _, bootstrap = self.execute(["consulta uno", "consulta dos", "exit"], ["--modo", "ollama", "--interactivo"])
+        code, _, agent, _, bootstrap = self.execute(["consulta uno", "consulta dos", "exit"], ["--interactivo"])
         self.assertEqual(code, 0)
         self.assertEqual(agent.respond.call_count, 2)
         bootstrap.assert_called_once()
 
     def test_omitted_message_also_opens_interactive_mode(self):
-        code, _, agent, _, _ = self.execute(["consulta", "exit"], ["--modo", "offline"])
+        code, _, agent, _, _ = self.execute(["consulta", "exit"], [])
         self.assertEqual(code, 0)
         agent.respond.assert_called_once()
 
@@ -92,7 +92,7 @@ class InteractiveTests(unittest.TestCase):
                 self.assertIn("En evaluación", text)
 
     def test_setup_failure_aborts_without_agent_or_fallback(self):
-        code, text, agent, constructor, bootstrap = self.execute([], ["--modo", "ollama", "--interactivo"], setup_error=SetupError("Preparación fallida"))
+        code, text, agent, constructor, bootstrap = self.execute([], ["--interactivo"], setup_error=SetupError("Preparación fallida"))
         self.assertEqual(code, 1)
         bootstrap.assert_called_once()
         constructor.assert_not_called()
@@ -100,7 +100,7 @@ class InteractiveTests(unittest.TestCase):
         self.assertIn("Preparación falló", text)
 
     def test_single_query_remains_compatible(self):
-        code, text, agent, _, _ = self.execute([], ["--modo", "offline", "--mensaje", "Estado de S-5521"])
+        code, text, agent, _, _ = self.execute([], ["--mensaje", "Estado de S-5521"])
         self.assertEqual(code, 0)
         agent.respond.assert_called_once_with("Estado de S-5521", {"rol": "cliente", "usuario_id": "C001"})
         self.assertNotIn("Consola finalizada", text)

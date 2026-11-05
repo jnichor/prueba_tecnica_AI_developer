@@ -1,5 +1,5 @@
-"""Comprueba que los comandos preparen Ollama cuando corresponde y guarden los archivos en la carpeta correcta.
-El modo offline, sin IA, no debe conectarse a servicios ni sobrescribir las respuestas publicadas."""
+"""Comprueba que los comandos preparen Ollama antes de responder y guarden los archivos en la carpeta correcta.
+Las conexiones y respuestas se preparan dentro de las pruebas, sin usar una IA real ni sobrescribir las salidas publicadas."""
 
 from contextlib import ExitStack, redirect_stderr, redirect_stdout
 import io
@@ -46,13 +46,12 @@ class SetupEntrypointTests(unittest.TestCase):
         def agente(*args, **kwargs):
             eventos.append("agente")
             creado.update(kwargs)
-            if kwargs["modo"] == "ollama":
-                creado["url_modelo"] = OllamaModel(modelo=kwargs.get("modelo")).base_url
+            creado["url_modelo"] = OllamaModel(modelo=kwargs.get("modelo")).base_url
 
             def responder(mensaje, sesion):
                 eventos.append("consulta")
                 return {"respuesta": "Respuesta de fixture", "estado": "ok", "herramientas": [],
-                        "fuentes": [], "modo": kwargs["modo"], "modelo": kwargs.get("modelo"),
+                        "fuentes": [], "modo": "ollama", "modelo": kwargs.get("modelo"),
                         "llm_llamadas": 0, "llm_segundos": 0}
 
             instancia = Mock()
@@ -77,31 +76,26 @@ class SetupEntrypointTests(unittest.TestCase):
         self.assertEqual(codigo, 0)
         self.assertEqual(eventos, ["preparar", "agente", "consulta"])
         preparar.assert_called_once_with(modelo=None, root=self.root)
-        self.assertEqual(creado["modo"], "ollama")
+        self.assertNotIn("modo", creado)
         self.assertEqual(creado["modelo"], "qwen2.5:7b")
         self.assertTrue((self.root / "salidas_ollama_corregido/respuestas.json").is_file())
 
-    def test_runner_offline_no_prepara_ni_usa_red(self):
-        with patch("seguros.bootstrap.urlopen", side_effect=AssertionError("Offline no debe preparar servicios")), \
-                patch("seguros.model.urlopen", side_effect=AssertionError("Offline no debe consultar modelos")):
-            codigo, eventos, creado, preparar, _, _ = self.ejecutar(run_casos, ["--modo", "offline"])
-        self.assertEqual(codigo, 0)
-        preparar.assert_not_called()
-        self.assertEqual(eventos, ["agente", "consulta"])
-        self.assertEqual(creado["modo"], "offline")
-        self.assertTrue((self.root / "salidas_offline/respuestas.json").is_file())
-        self.assertFalse((self.root / ".runtime").exists())
+    def test_runner_rechaza_el_selector_de_modo_retirado(self):
+        for value in ("offline", "ollama"):
+            with self.subTest(value=value), self.assertRaises(SystemExit) as stopped:
+                self.ejecutar(run_casos, ["--modo", value], error=AssertionError("No debe preparar un comando inválido"))
+            self.assertEqual(stopped.exception.code, 2)
 
-    def test_runner_offline_default_preserva_respuestas_publicadas_en_salidas(self):
+    def test_runner_preserva_respuestas_publicadas_en_salidas(self):
         published = self.root / "salidas/respuestas.json"
         published.parent.mkdir()
         original = b'{"evidencia_publicada":true}\n'
         published.write_bytes(original)
-        codigo, _, creado, preparar, _, _ = self.ejecutar(run_casos, ["--modo", "offline"])
+        codigo, _, creado, preparar, _, _ = self.ejecutar(run_casos, [])
         self.assertEqual(codigo, 0)
-        preparar.assert_not_called()
-        self.assertEqual(creado["output_dir"], self.root / "salidas_offline")
-        self.assertTrue((self.root / "salidas_offline/respuestas.json").is_file())
+        preparar.assert_called_once()
+        self.assertEqual(creado["output_dir"], self.root / "salidas_ollama_corregido")
+        self.assertTrue((self.root / "salidas_ollama_corregido/respuestas.json").is_file())
         self.assertEqual(published.read_bytes(), original)
 
     def test_solo_preparar_no_crea_agente_ni_ejecuta_casos(self):
@@ -112,11 +106,12 @@ class SetupEntrypointTests(unittest.TestCase):
         agente.assert_not_called()
         self.assertFalse((self.root / "salidas_ollama_corregido/respuestas.json").exists())
 
-    def test_solo_preparar_offline_no_prepara_nada(self):
-        codigo, eventos, _, preparar, agente, _ = self.ejecutar(run_casos, ["--modo", "offline", "--solo-preparar"])
-        self.assertEqual(codigo, 0)
-        self.assertEqual(eventos, [])
-        preparar.assert_not_called()
+    def test_solo_preparar_falla_sin_crear_agente_si_la_preparacion_falla(self):
+        codigo, eventos, _, preparar, agente, _ = self.ejecutar(
+            run_casos, ["--solo-preparar"], error=SetupError("No se pudo preparar el modelo"))
+        self.assertEqual(codigo, 1)
+        self.assertEqual(eventos, ["preparar"])
+        preparar.assert_called_once()
         agente.assert_not_called()
 
     def test_error_preparacion_retorna_uno_sin_agente_ni_fallback(self):
@@ -145,12 +140,12 @@ class SetupEntrypointTests(unittest.TestCase):
         self.assertEqual(creado["modelo"], "modelo-entorno")
         self.assertEqual(creado["url_modelo"], direccion)
 
-    def test_modo_offline_del_entorno_tambien_evita_preparacion(self):
+    def test_variable_antigua_no_desactiva_la_preparacion_de_ia(self):
         codigo, eventos, creado, preparar, _, _ = self.ejecutar(run_casos, [], {"AGENT_MODE": "offline"})
         self.assertEqual(codigo, 0)
-        preparar.assert_not_called()
-        self.assertEqual(eventos, ["agente", "consulta"])
-        self.assertEqual(creado["modo"], "offline")
+        preparar.assert_called_once()
+        self.assertEqual(eventos, ["preparar", "agente", "consulta"])
+        self.assertNotIn("modo", creado)
 
     def test_consulta_individual_prepara_antes_del_agente(self):
         codigo, eventos, creado, preparar, _, _ = self.ejecutar(consultar, [
@@ -158,17 +153,14 @@ class SetupEntrypointTests(unittest.TestCase):
         self.assertEqual(codigo, 0)
         self.assertEqual(eventos, ["preparar", "agente", "consulta"])
         preparar.assert_called_once()
-        self.assertEqual(creado["modo"], "ollama")
+        self.assertNotIn("modo", creado)
 
-    def test_consulta_individual_offline_no_prepara(self):
-        with patch("seguros.bootstrap.urlopen", side_effect=AssertionError("Offline no debe preparar servicios")), \
-                patch("seguros.model.urlopen", side_effect=AssertionError("Offline no debe consultar modelos")):
-            codigo, eventos, creado, preparar, _, _ = self.ejecutar(consultar, [
-                "--rol", "cliente", "--usuario", "C001", "--mensaje", "Consulta", "--modo", "offline"])
-        self.assertEqual(codigo, 0)
-        self.assertEqual(eventos, ["agente", "consulta"])
-        self.assertEqual(creado["output_dir"], self.root / "salidas_offline")
-        preparar.assert_not_called()
+    def test_consulta_individual_no_acepta_el_selector_de_modo_retirado(self):
+        with self.assertRaises(SystemExit) as stopped:
+            self.ejecutar(consultar, ["--rol", "cliente", "--usuario", "C001", "--mensaje", "Consulta",
+                                      "--modo", "offline"],
+                          error=AssertionError("No debe preparar un comando inválido"))
+        self.assertEqual(stopped.exception.code, 2)
 
     def test_consulta_individual_error_preparacion_sin_agente(self):
         codigo, eventos, _, _, agente, _ = self.ejecutar(consultar, [

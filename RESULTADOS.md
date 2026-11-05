@@ -9,12 +9,14 @@
 **Para reproducirlo con la organización actual**, desde la raíz del proyecto y guardando una ejecución nueva:
 
 ```powershell
-python -m scripts.run_casos --modo ollama --modelo qwen2.5:7b --salida salidas_reproduccion --evaluar
+python -m scripts.run_casos --modelo qwen2.5:7b --salida salidas_reproduccion --evaluar
 ```
 
 **Registro histórico:** la ejecución del 3 de noviembre usó `python run_casos.py --modo ollama --modelo qwen2.5:7b --salida salidas_publicacion_verificada --evaluar`, cuando ese archivo estaba en la raíz. Esa ruta antigua ya no es el comando vigente. El cambio de ubicación no modifica las respuestas ni las mediciones históricas que se muestran a continuación.
 
-**Revalidación del 4 de noviembre:** la ayuda y las consultas propias se comprobaron con 248 pruebas. La regresión real anterior de los 12 casos conservó las respuestas publicadas salvo el identificador del ticket. Al ampliar después los alias de ayuda, se verificaron los doce esquemas sin cambios, doce casos offline y tres preguntas reales de consola, sin repetir ese lote Qwen. Estas comprobaciones no reemplazan las respuestas ni las métricas del 3 de noviembre detalladas en este documento.
+**Registro de verificaciones previas (4 de noviembre):** la ayuda y las consultas propias se comprobaron con 248 pruebas. La regresión real de los 12 casos conservó las respuestas publicadas salvo el identificador del ticket. Al ampliar los alias de ayuda se verificaron los doce esquemas sin cambios, doce casos con el antiguo modo offline y tres preguntas reales de consola, sin repetir ese lote Qwen. Ese modo de ejecución ya fue retirado. Estas comprobaciones no reemplazan las respuestas ni las métricas del 3 de noviembre detalladas en este documento.
+
+**Verificación de la ejecución actual (4 de noviembre):** 249 pruebas aprobadas y los 12 casos reales correctos con Ollama, con nueve llamadas al modelo y tres controles previos sin llamadas. Las respuestas coinciden con las publicadas salvo el identificador del ticket. La opción de ejecutar consultas sin modelo fue retirada; las respuestas y mediciones históricas se conservan.
 
 ## Resumen
 

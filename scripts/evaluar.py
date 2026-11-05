@@ -32,7 +32,7 @@ def main():
     if source is None:
         # Buscamos pruebas locales; salidas/ contiene la copia de resultados para compartir.
         candidates = [ROOT / "salidas_ollama_corregido/respuestas.json",
-                      ROOT / "salidas_ollama/respuestas.json", ROOT / "salidas_offline/respuestas.json"]
+                      ROOT / "salidas_ollama/respuestas.json"]
         source = next((candidate for candidate in candidates if candidate.is_file()), candidates[-1])
     try:
         results = json.loads(source.read_text(encoding="utf-8-sig"))

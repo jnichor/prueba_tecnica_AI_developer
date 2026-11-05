@@ -260,47 +260,6 @@ def _unique_object(pairs):
     return result
 
 
-def offline_plan(message):
-    """Entiende la pregunta con reglas escritas en el programa. Solo se usa cuando se
-    eligió el modo sin IA; no reemplaza a Qwen a escondidas si falla.
-    """
-    text = normalize(message)
-    plan = {"intent": "aclaracion", "siniestro_id": None, "poliza_id": None,
-            "ramo": None, "evento": "desconocido", "trimestre": None, "anio": None}
-    branches, events = supported_branches(message), supported_events(message) - {"desconocido"}
-    if len(branches) == 1:
-        plan["ramo"] = next(iter(branches))
-    if len(events) == 1:
-        plan["evento"] = next(iter(events))
-    for key, prefix in (("siniestro_id", "S"), ("poliza_id", "POL")):
-        identifiers = {value.upper() for value in literal_ids(message, prefix)}
-        if len(identifiers) == 1:
-            plan[key] = identifiers.pop()
-    if re.search(r"\b(?:aprobar|aprueba|actualiza|modifica|elimina|borra)\b", text):
-        plan["intent"] = "operacion_no_permitida"
-    elif requests_third_party_data(message):
-        plan["intent"] = "consulta_tercero"
-    elif (any(word in text for word in ("fondo mutuo", "invertir", "inversion", "me conviene", "demandar", "medicamento", "diagnostico"))
-          or re.search(r"\b(?:recomiend\w*|recomendacion\w*|aconsej\w*)\b", text)):
-        plan["intent"] = "asesoria"
-    elif general_help_request(message):
-        plan["intent"] = "ayuda"
-    elif "rechaz" in text and ("cuantos" in text or "trimestre" in text):
-        plan["intent"] = "rechazos_trimestre"
-        quarters, years = literal_quarters(message), literal_years(message)
-        plan["trimestre"] = next(iter(quarters)) if len(quarters) == 1 else None
-        plan["anio"] = next(iter(years)) if len(years) == 1 else None
-    elif self_claim_history_request(message):
-        plan["intent"] = "historial_siniestros"
-    elif own_policy_request(message):
-        plan["intent"] = "consultar_polizas"
-    elif plan["siniestro_id"]:
-        plan["intent"] = "motivo_rechazo" if "rechaz" in text else "estado_siniestro"
-    elif plan["ramo"] or plan["poliza_id"]:
-        plan["intent"] = "cobertura"
-    return validate_plan(plan, message)
-
-
 class Planner:
     """Pide a Qwen entender la pregunta y devolver los datos necesarios. No le entrega
     expedientes, artículos ni herramientas para buscar información.

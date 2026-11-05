@@ -2,7 +2,9 @@
 
 Prueba técnica desarrollada por **Jesus Nicho Rosado**. La solución consulta datos y condiciones de seguros, explica sus fuentes y deriva casos a atención humana. Usa Python y un modelo local mediante Ollama.
 
-La validación del 4 de noviembre de 2026 documenta 12 casos correctos con `qwen2.5:7b` y 248 pruebas aprobadas. Tres casos se resolvieron con controles previos sin IA. Además se verificaron consultas naturales de historial, póliza y cobertura en la consola. Los datos son ficticios.
+Las consultas se interpretan únicamente mediante Ollama, con Qwen como modelo predeterminado. Los controles de seguridad pueden responder antes de consultar al modelo.
+
+La validación del 4 de noviembre de 2026 documenta 12 casos correctos con `qwen2.5:7b` y 249 pruebas aprobadas. Tres casos se resolvieron con controles previos sin IA. Además se verificaron consultas naturales de historial, póliza y cobertura en la consola. Los datos son ficticios.
 
 ## Cómo está organizado
 
@@ -46,7 +48,7 @@ En Windows x64 se usa una distribución portátil oficial verificada y se guarda
 
 En Linux o macOS debes iniciar un servicio Ollama local; el programa lo reutiliza, pero no instala el runtime automáticamente.
 
-La configuración opcional está en [.env.example](.env.example). `--modelo` prevalece sobre `OLLAMA_MODEL`; `AGENT_MODE` y `OLLAMA_BASE_URL` permiten configurar el modo y el servicio local.
+La configuración opcional está en [.env.example](.env.example). `--modelo` prevalece sobre `OLLAMA_MODEL`; `OLLAMA_BASE_URL` indica la dirección del servicio local.
 
 </details>
 

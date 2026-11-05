@@ -26,7 +26,8 @@ class EvaluationTests(unittest.TestCase):
     Por ejemplo, reemplaza el estado de S-5521 por pagado aunque el dato real sea en evaluación."""
     @classmethod
     def setUpClass(cls):
-        cls.baseline = json.loads((ROOT / "tests/fixtures/respuestas_offline.json").read_text(encoding="utf-8"))
+        # Se conserva el archivo histórico tal como se guardó; solo sirve para probar el evaluador.
+        cls.baseline = json.loads((ROOT / "tests/fixtures/respuestas_pruebas.json").read_text(encoding="utf-8"))
 
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
@@ -205,7 +206,7 @@ class EvaluationTests(unittest.TestCase):
             self.assertEqual(cli.main(), 2)
         self.assertFalse((self.root / "evaluacion_automatica.md").exists())
 
-    def test_cli_chooses_real_ai_output_when_both_modes_exist(self):
+    def test_cli_elige_la_ejecucion_y_no_un_archivo_de_pruebas_antiguo(self):
         for folder in ("datos", "condicionados", "casos_prueba"):
             shutil.copytree(ROOT / folder, self.root / folder)
         for folder in ("salidas_offline", "salidas_ollama"):
@@ -250,6 +251,9 @@ class EvaluationTests(unittest.TestCase):
         (published / "respuestas.json").write_bytes(original_results)
         original_report = b'Informe publicado: conservar\n'
         (published / "evaluacion_automatica.md").write_bytes(original_report)
+        legacy = self.root / "salidas_offline"
+        legacy.mkdir()
+        (legacy / "respuestas.json").write_bytes(original_results)
         with patch.object(cli, "ROOT", self.root), patch("sys.argv", ["scripts/evaluar.py"]), \
                 patch.object(cli, "evaluar_reporte") as assess, redirect_stdout(io.StringIO()):
             self.assertEqual(cli.main(), 2)
@@ -273,12 +277,13 @@ class EvaluationTests(unittest.TestCase):
                 if failed:
                     batch[0]["respuesta"] = "El siniestro está pagado."
                 output = self.root / ("failed" if failed else "passed")
-                with patch("sys.argv", ["scripts/run_casos.py", "--modo", "offline", "--evaluar", "--salida", str(output)]), \
-                        patch.object(run_casos, "load_env"), patch.object(run_casos, "ensure_ollama") as prepare, \
+                with patch("sys.argv", ["scripts/run_casos.py", "--evaluar", "--salida", str(output)]), \
+                        patch.object(run_casos, "load_env"), \
+                        patch.object(run_casos, "ensure_ollama", return_value={"modelo": "fixture"}) as prepare, \
                         patch.object(run_casos, "Agent") as agent, redirect_stdout(io.StringIO()):
                     agent.return_value.respond.side_effect = batch
                     self.assertEqual(run_casos.main(), int(failed))
-                prepare.assert_not_called()
+                prepare.assert_called_once()
                 self.assertTrue((output / "evaluacion_automatica.md").exists())
                 report = json.loads((output / "evaluacion_automatica.json").read_text(encoding="utf-8"))
                 self.assertEqual(report["todos_cumplen"], not failed)

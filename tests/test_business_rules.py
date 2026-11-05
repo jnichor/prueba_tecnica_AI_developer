@@ -55,7 +55,7 @@ class BusinessRuleTests(unittest.TestCase):
     def agent(self, value, root=ROOT):
         """Crea un agente que usa respuestas preparadas en lugar de consultar a Qwen."""
         self.instances += 1
-        instance = Agent(root=root, output_dir=self.output / str(self.instances), modo="ollama")
+        instance = Agent(root=root, output_dir=self.output / str(self.instances))
         instance.model = PlannedModel(value)
         return instance
 

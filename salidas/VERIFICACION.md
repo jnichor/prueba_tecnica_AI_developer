@@ -8,7 +8,7 @@ Revisión de contenido con asistencia de Codex contra los CSV, los artículos y 
 - Tokens: 5,349 de entrada + 513 de salida = 5,862.
 - Tiempo acumulado de inferencia: 32.419 segundos.
 - Suite de regresión registrada: 216 pruebas aprobadas.
-- Comprobación actual de ayuda y consultas (4 de noviembre): 248 pruebas aprobadas. Se verificaron los alias de ayuda y una consulta real de seguros propios mediante la palabra productos; los doce esquemas y planes existentes no cambiaron. La regresión real anterior de 12 casos y sus cifras se conservan.
+- Revalidación del 4 de noviembre tras retirar el modo sin IA: 249 pruebas y 12 casos reales aprobados con Ollama; nueve llamadas al modelo y tres controles previos. Las respuestas históricas y sus cifras se conservan.
 
 ## Matriz de las ocho reglas
 

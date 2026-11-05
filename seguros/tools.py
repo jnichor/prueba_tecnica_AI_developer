@@ -182,7 +182,7 @@ class Tools:
         cambia los documentos ni los envía a Qwen.
         """
         self.root = Path(root) if root is not None else ROOT
-        self.output_dir = Path(output_dir) if output_dir is not None else self.root / "salidas_offline"
+        self.output_dir = Path(output_dir) if output_dir is not None else self.root / "salidas_ollama_corregido"
         self.data = DataStore(self.root, safe_model=safe_model)
         self.fragments = []
         for path in sorted((self.root / "condicionados").glob("*.md")):

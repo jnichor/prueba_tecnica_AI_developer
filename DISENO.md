@@ -41,7 +41,7 @@ La IA entiende qué se pregunta; el programa comprueba los datos y redacta la re
 
 ## 4. Decisiones principales
 
-**Modelo:** Ollama 0.40.13 con qwen2.5:7b. Se descartó la generación libre tras observar una causa de rechazo y un plazo inventados. La IA ahora interpreta campos limitados y el código verifica los hechos. Un único reintento corrige formato; si falla, se audita y deriva sin ocultar un reemplazo offline.
+**Modelo:** Ollama 0.40.13 con qwen2.5:7b es la única ruta para interpretar consultas. Se descartó la generación libre tras observar una causa de rechazo y un plazo inventados. La IA interpreta campos limitados y el código verifica los hechos. Un único reintento corrige formato; si falla, se registra y se pide revisión sin inventar una respuesta.
 
 **Framework:** biblioteca estándar para reducir dependencias y explicar el circuito. Un framework ofrecería abstracciones, pero añadiría configuración innecesaria para este alcance.
 

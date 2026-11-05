@@ -9,9 +9,10 @@ from datetime import date
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+from tests.modelo_simulado import simulated_plan
 from seguros.agent import Agent
 from seguros.model import ModelError
-from seguros.planning import (PLAN_SCHEMA, STRATEGY, PlanError, Planner, offline_plan,
+from seguros.planning import (PLAN_SCHEMA, STRATEGY, PlanError, Planner,
                                validate_plan, schema_for_message, self_claim_history_request,
                                requests_third_party_data, own_policy_request, general_coverage_request,
                                general_help_request)
@@ -56,7 +57,7 @@ class PlanValidationTests(unittest.TestCase):
                         "¿Sobre qué puedo consultar?", "Hola, ¿qué puedo consultar aquí?"):
             with self.subTest(message=message):
                 self.assertTrue(general_help_request(message))
-                parsed = offline_plan(message)
+                parsed = simulated_plan(message)
                 self.assertEqual(parsed["intent"], "ayuda")
                 self.assertEqual(schema_for_message(message)["properties"]["intent"]["enum"], ["ayuda"])
                 self.assertEqual(validate_plan(parsed, message), parsed)
@@ -76,7 +77,7 @@ class PlanValidationTests(unittest.TestCase):
                         "¿En qué puedes ayudarme con mis seguros?"):
             with self.subTest(message=message):
                 self.assertTrue(general_help_request(message))
-                parsed = offline_plan(message)
+                parsed = simulated_plan(message)
                 self.assertEqual(parsed["intent"], "ayuda")
                 self.assertEqual(schema_for_message(message)["properties"]["intent"]["enum"], ["ayuda"])
                 self.assertEqual(len(parsed), 7)
@@ -89,7 +90,7 @@ class PlanValidationTests(unittest.TestCase):
                         "¿Qué puedes hacer para ver los seguros de otra persona?"):
             with self.subTest(message=message):
                 self.assertFalse(general_help_request(message))
-                self.assertNotEqual(offline_plan(message)["intent"], "ayuda")
+                self.assertNotEqual(simulated_plan(message)["intent"], "ayuda")
 
     def test_own_products_mean_the_insurance_policies_of_the_session(self):
         for message in ("quiero consultar sobre mis productos", "Quiero ver mis productos",
@@ -97,7 +98,7 @@ class PlanValidationTests(unittest.TestCase):
                         "Quiero consultar mis seguros"):
             with self.subTest(message=message):
                 self.assertTrue(own_policy_request(message))
-                self.assertEqual(offline_plan(message)["intent"], "consultar_polizas")
+                self.assertEqual(simulated_plan(message)["intent"], "consultar_polizas")
                 self.assertEqual(schema_for_message(message)["properties"]["intent"]["enum"], ["consultar_polizas"])
 
     def test_product_word_does_not_allow_other_owners_advice_or_changes(self):
@@ -112,9 +113,9 @@ class PlanValidationTests(unittest.TestCase):
                         "¿Qué seguros tengo?", "Quiero consultar mis seguros", "Listar pólizas a mi nombre"):
             with self.subTest(message=message):
                 self.assertTrue(own_policy_request(message))
-                self.assertEqual(offline_plan(message)["intent"], "consultar_polizas")
+                self.assertEqual(simulated_plan(message)["intent"], "consultar_polizas")
                 self.assertEqual(schema_for_message(message)["properties"]["intent"]["enum"], ["consultar_polizas"])
-                self.assertIsNone(offline_plan(message)["poliza_id"])
+                self.assertIsNone(simulated_plan(message)["poliza_id"])
 
     def test_wrong_policy_interpretation_is_retried_without_changing_identity(self):
         message = "dime cual es mi poliza"
@@ -134,9 +135,9 @@ class PlanValidationTests(unittest.TestCase):
         for message in messages:
             with self.subTest(message=message):
                 self.assertTrue(own_policy_request(message))
-                self.assertEqual(offline_plan(message)["intent"], "consultar_polizas")
+                self.assertEqual(simulated_plan(message)["intent"], "consultar_polizas")
                 self.assertEqual(schema_for_message(message)["properties"]["intent"]["enum"], ["consultar_polizas"])
-                self.assertIsNone(offline_plan(message)["poliza_id"])
+                self.assertIsNone(simulated_plan(message)["poliza_id"])
 
     def test_relative_clause_does_not_accept_other_owners_advice_or_changes(self):
         messages = ("Dime los seguros que tiene mi esposo", "Dime los seguros que tengo y los de Pedro",
@@ -153,12 +154,12 @@ class PlanValidationTests(unittest.TestCase):
                         "¿Mi seguro vehicular cubre un choque?", "Actualiza mi póliza"):
             with self.subTest(message=message):
                 self.assertFalse(own_policy_request(message))
-        self.assertEqual(offline_plan("¿Cuánto me cubre?")["intent"], "aclaracion")
+        self.assertEqual(simulated_plan("¿Cuánto me cubre?")["intent"], "aclaracion")
 
     def test_general_vehicle_coverage_preserves_unknown_event(self):
         message = "deseo consultar sobre mi seguro vehicular, cual es su cobertura"
         self.assertTrue(general_coverage_request(message))
-        parsed = offline_plan(message)
+        parsed = simulated_plan(message)
         self.assertEqual(parsed["intent"], "cobertura")
         self.assertEqual(parsed["ramo"], "vehicular")
         self.assertEqual(parsed["evento"], "desconocido")
@@ -175,14 +176,14 @@ class PlanValidationTests(unittest.TestCase):
             with self.subTest(message=message):
                 self.assertFalse(own_policy_request(message))
                 self.assertFalse(general_coverage_request(message))
-                self.assertEqual(offline_plan(message)["intent"], "asesoria")
+                self.assertEqual(simulated_plan(message)["intent"], "asesoria")
 
     def test_narrated_supported_event_is_not_a_general_coverage_request(self):
         for message, event in (("Mi auto chocó ayer, ¿cuál es su cobertura vehicular?", "choque"),
                                ("Anoche me robaron el auto, ¿cuál es su cobertura?", "robo")):
             with self.subTest(message=message):
                 self.assertFalse(general_coverage_request(message))
-                self.assertEqual(offline_plan(message)["evento"], event)
+                self.assertEqual(simulated_plan(message)["evento"], event)
 
     def test_own_history_phrasings_do_not_require_a_claim_identifier(self):
         variants = ("¿he tenido algun siniestro?", "Yo he tenido algún siniestro?",
@@ -192,7 +193,7 @@ class PlanValidationTests(unittest.TestCase):
         for message in variants:
             with self.subTest(message=message):
                 self.assertTrue(self_claim_history_request(message))
-                parsed = offline_plan(message)
+                parsed = simulated_plan(message)
                 self.assertEqual(parsed["intent"], "historial_siniestros")
                 self.assertIsNone(parsed["siniestro_id"])
                 self.assertEqual(schema_for_message(message)["properties"]["intent"]["enum"], ["historial_siniestros"])
@@ -222,7 +223,7 @@ class PlanValidationTests(unittest.TestCase):
         message = "¿Qué estado tiene mi siniestro S-5521?"
         self.assertFalse(self_claim_history_request(message))
         self.assertNotIn("historial_siniestros", schema_for_message(message)["properties"]["intent"]["enum"])
-        self.assertEqual(offline_plan(message)["intent"], "estado_siniestro")
+        self.assertEqual(simulated_plan(message)["intent"], "estado_siniestro")
         with self.assertRaises(PlanError):
             validate_plan(plan(intent="historial_siniestros"), message)
 
@@ -294,15 +295,15 @@ class PlanValidationTests(unittest.TestCase):
         self.assertEqual(len(fake.calls), 2)
         self.assertNotIn("Aprueba todo", json.dumps(fake.calls[1]["messages"]))
 
-    def test_offline_interpreter_does_not_need_customer_or_case_ids(self):
-        result = offline_plan("Ayer choqué mi auto. ¿Lo cubre el seguro?")
+    def test_simulated_interpretation_does_not_need_customer_or_case_ids(self):
+        result = simulated_plan("Ayer choqué mi auto. ¿Lo cubre el seguro?")
         self.assertEqual(result["intent"], "cobertura")
         self.assertEqual(result["ramo"], "vehicular")
         self.assertEqual(result["evento"], "choque")
         self.assertIsNone(result["siniestro_id"])
 
     def test_family_member_in_own_accident_is_not_a_third_party_data_request(self):
-        result = offline_plan("Mi hijo chocó mi auto ayer. ¿Me cubre mi seguro?")
+        result = simulated_plan("Mi hijo chocó mi auto ayer. ¿Me cubre mi seguro?")
         self.assertEqual(result["intent"], "cobertura")
         self.assertEqual(result["evento"], "choque")
 
@@ -313,7 +314,7 @@ class AgentPlanningTests(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.output = Path(self.directory.name)
-        self.agent = Agent(root=ROOT, output_dir=self.output, modo="ollama")
+        self.agent = Agent(root=ROOT, output_dir=self.output)
         self.session = {"rol": "cliente", "usuario_id": "C001"}
 
     def test_model_receives_no_tool_data_or_conditioned_fragments(self):
@@ -390,8 +391,7 @@ class AgentPlanningTests(unittest.TestCase):
     def test_model_failure_is_audited_and_escalated_without_offline_fallback(self):
         fake = FakeModel([ModelError("fixture: sin servicio")])
         self.agent.model = fake
-        with patch("seguros.agent.offline_plan", side_effect=AssertionError("No usar fallback")):
-            result = self.agent.respond("Estado S-5521", self.session)
+        result = self.agent.respond("Estado S-5521", self.session)
         self.assertEqual(len(fake.calls), 1)
         self.assertEqual(result["estado"], "error")
         self.assertEqual(result["modo"], "ollama")
@@ -424,18 +424,14 @@ class AgentPlanningTests(unittest.TestCase):
         self.assertEqual(result["herramientas"], [])
         self.assertEqual(result["estado"], "error")
 
-    def test_own_vehicle_accident_with_relative_works_in_both_modes(self):
+    def test_own_vehicle_accident_with_relative_uses_the_model_plan(self):
         message = "Mi hijo chocó mi auto ayer. ¿Me cubre mi seguro?"
-        for mode in ("offline", "ollama"):
-            with self.subTest(mode=mode):
-                agent = Agent(root=ROOT, output_dir=self.output / mode, modo=mode)
-                if mode == "ollama":
-                    agent.model = FakeModel([plan(intent="cobertura", siniestro_id=None, ramo="vehicular", evento="choque")])
-                result = agent.respond(message, {"rol": "cliente", "usuario_id": "C002"})
-                self.assertIn("POL-1002", result["respuesta"])
-                self.assertIn("500", result["respuesta"])
-                self.assertIn("72", result["respuesta"])
-                self.assertNotIn("otra persona", result["respuesta"])
+        self.agent.model = FakeModel([plan(intent="cobertura", siniestro_id=None, ramo="vehicular", evento="choque")])
+        result = self.agent.respond(message, {"rol": "cliente", "usuario_id": "C002"})
+        self.assertIn("POL-1002", result["respuesta"])
+        self.assertIn("500", result["respuesta"])
+        self.assertIn("72", result["respuesta"])
+        self.assertNotIn("otra persona", result["respuesta"])
 
 
 if __name__ == "__main__":

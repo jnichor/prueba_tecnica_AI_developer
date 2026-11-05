@@ -11,6 +11,7 @@ import unittest
 from unittest.mock import Mock
 
 from scripts.evaluar import evaluar
+from tests.modelo_simulado import SimulatedModel
 from seguros.agent import Agent
 from seguros.model import ModelError
 
@@ -30,7 +31,8 @@ class AgentTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.salida = Path(self.tmp.name)
-        self.agent = Agent(root=ROOT, output_dir=self.salida, modo="offline")
+        self.agent = Agent(root=ROOT, output_dir=self.salida)
+        self.agent.model = SimulatedModel()
         self.casos = json.loads((ROOT / "casos_prueba/casos_prueba.json").read_text(
             encoding="utf-8"))["casos"]
 
@@ -39,12 +41,17 @@ class AgentTests(unittest.TestCase):
         return self.agent.respond(caso["mensaje"], {
             "rol": caso["rol"], "usuario_id": caso["usuario_id"]})
 
+    def test_no_se_puede_activar_el_modo_retirado(self):
+        with self.assertRaises(TypeError):
+            Agent(root=ROOT, output_dir=self.salida, modo="offline")
+        self.assertIsNotNone(self.agent.model)
+
     def test_los_doce_casos_generan_respuesta_y_auditoria(self):
         for caso in self.casos:
             with self.subTest(caso=caso["id"]):
                 resultado = self.responder(caso)
                 self.assertTrue(resultado["respuesta"].strip())
-                self.assertEqual(resultado["modo"], "offline")
+                self.assertEqual(resultado["modo"], "ollama")
                 self.assertIsInstance(resultado["herramientas"], list)
                 self.assertIsInstance(resultado["fuentes"], list)
         registros = [json.loads(linea) for linea in (
@@ -133,7 +140,8 @@ class AgentTests(unittest.TestCase):
             escritor = csv.DictWriter(stream, fieldnames=campos)
             escritor.writeheader()
             escritor.writerows([fuera, dentro])
-        agent = Agent(root=fixture, output_dir=self.salida / "auditoria_fixture", modo="offline")
+        agent = Agent(root=fixture, output_dir=self.salida / "auditoria_fixture")
+        agent.model = SimulatedModel()
         resultado = agent.respond(self.casos[7]["mensaje"], {
             "rol": "asesor", "usuario_id": "ASE01"})
         self.assertEqual(resultado["estado"], "ok")
@@ -176,7 +184,7 @@ class AgentTests(unittest.TestCase):
         self.assertFalse(any("S-5524" in f for f in resultado["fuentes"]))
 
     def test_identidad_invalida_se_rechaza_antes_del_modelo(self):
-        agent = Agent(root=ROOT, output_dir=self.salida, modo="ollama")
+        agent = Agent(root=ROOT, output_dir=self.salida)
         agent.model = Mock()
         resultado = agent.respond("¿Cuánto me cubre?", {
             "rol": "asesor", "usuario_id": "C001"})
@@ -211,7 +219,7 @@ class ModelCircuitTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.salida = Path(self.tmp.name)
-        self.agent = Agent(root=ROOT, output_dir=self.salida, modo="ollama")
+        self.agent = Agent(root=ROOT, output_dir=self.salida)
         self.agent.model = Mock()
         self.session = {"rol": "cliente", "usuario_id": "C001"}
 

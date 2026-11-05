@@ -127,7 +127,7 @@ class ToolsTests(unittest.TestCase):
         sql = "SELECT siniestro_id,estado,clausula_referencia FROM siniestros WHERE siniestro_id='S-5524'"
         self.assertTrue(safe.call("consulta_datos", {"sql": sql}, self.advisor)["filas"])
 
-    def test_offline_mode_preserves_original_narrative_evidence(self):
+    def test_local_tools_preserve_original_text_evidence(self):
         sql = "SELECT descripcion,motivo_rechazo FROM siniestros WHERE siniestro_id='S-5524'"
         row = self.query(sql, self.advisor)["filas"][0]
         self.assertTrue(row["descripcion"])

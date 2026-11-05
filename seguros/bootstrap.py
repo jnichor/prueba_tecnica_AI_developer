@@ -439,4 +439,4 @@ def ensure_ollama(modelo=None, base_url=None, root=None, prepare=True, progress=
     except SetupError:
         raise
     except (OSError, ValueError, zipfile.BadZipFile) as exc:
-        raise SetupError(f"No se pudo preparar Ollama ({type(exc).__name__}). Comprueba conexión, espacio y permisos; no se usará el modo offline como sustituto.") from exc
+        raise SetupError(f"No se pudo preparar Ollama ({type(exc).__name__}). Comprueba conexión, espacio y permisos; no se generarán respuestas sin Ollama.") from exc

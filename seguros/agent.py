@@ -9,7 +9,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 
 from .model import ModelError, OllamaModel, load_env
-from .planning import PlanError, Planner, STRATEGY, offline_plan
+from .planning import PlanError, Planner, STRATEGY
 from .resolver import Resolver
 from .tools import Tools
 
@@ -21,21 +21,18 @@ class Agent:
     """Atiende las consultas que llegan desde la consola o los doce casos. Coordina los
     pasos, pero no aprueba pagos ni cambia pólizas o siniestros.
     """
-    def __init__(self, root=None, output_dir=None, modo="ollama", modelo=None,
+    def __init__(self, root=None, output_dir=None, modelo=None,
                  fecha_referencia="2026-10-15"):
-        """Recibe las carpetas, la fecha del ejercicio y el modo de uso. Prepara las
+        """Recibe las carpetas y la fecha del ejercicio. Prepara las
         piezas del programa; aquí no descarga ni inicia Ollama.
         """
         self.root = Path(root) if root else ROOT
-        self.output_dir = Path(output_dir) if output_dir else self.root / ("salidas_offline" if modo == "offline" else "salidas_ollama_corregido")
+        self.output_dir = Path(output_dir) if output_dir else self.root / "salidas_ollama_corregido"
         load_env(self.root / ".env")
-        if modo not in {"offline", "ollama"}:
-            raise ValueError("Modo permitido: offline u ollama.")
-        self.modo = modo
         self.today = date.fromisoformat(fecha_referencia)
         # Los datos se usan para preparar la respuesta; no se envían a Qwen.
         self.tools = Tools(root=self.root, output_dir=self.output_dir, safe_model=False)
-        self.model = OllamaModel(modelo=modelo) if modo == "ollama" else None
+        self.model = OllamaModel(modelo=modelo)
         if self.model:
             self.model.telemetry_path = self.output_dir / "llm_calls.jsonl"
         self.trace = []
@@ -121,7 +118,7 @@ class Agent:
             return ("No pude interpretar tu consulta de forma segura. No voy a inventar información. "
                     "Tampoco se pudo registrar la derivación; contacta a un asesor por un canal de atención.")
         return ("No pude interpretar tu consulta de forma segura. No voy a inventar información ni "
-                "sustituir la IA por una respuesta offline. Registré la solicitud " + ticket["ticket_id"] +
+                "responder sin una interpretación válida. Registré la solicitud " + ticket["ticket_id"] +
                 " para revisión humana. El ticket es local y no implica contacto automático.")
 
     def respond(self, mensaje, session):
@@ -151,17 +148,13 @@ class Agent:
             if guarded is not None:
                 answer, interpretation = guarded, "guardia_determinista"
             else:
-                if self.modo == "offline":
-                    plan = offline_plan(mensaje)
-                    interpretation = "offline_explicito"
-                else:
-                    model_invoked = True
-                    # Se usa el modelo actual para poder probarlo con una respuesta simulada.
-                    plan = Planner(self.model, self.today).interpret(mensaje, session)
-                    interpretation = "modelo"
+                model_invoked = True
+                # Se usa el modelo actual para poder probarlo con una respuesta simulada.
+                plan = Planner(self.model, self.today).interpret(mensaje, session)
+                interpretation = "modelo"
                 answer = resolver.resolve(plan, mensaje, session)
         except (PlanError, ModelError):
-            state, interpretation = "error", "error_modelo" if self.modo == "ollama" else "error_interpretacion"
+            state, interpretation = "error", "error_modelo"
             answer = self._failed_interpretation(mensaje, session)
         except ValueError as exc:
             answer, state = str(exc), "error"
@@ -172,7 +165,7 @@ class Agent:
         sources = self._sources()
         answer += "\n\nFuentes: " + "; ".join(sources)
         result = {"respuesta": answer, "herramientas": list(self.trace), "fuentes": sources,
-                  "modo": self.modo, "estado": state, "fecha_referencia": self.today.isoformat(),
+                  "modo": "ollama", "estado": state, "fecha_referencia": self.today.isoformat(),
                   "plan_validado": plan, "estrategia": STRATEGY, "interpretacion": interpretation}
         events = self._model_events()[llm_start:]
         model_name = getattr(self.model, "modelo", None)
