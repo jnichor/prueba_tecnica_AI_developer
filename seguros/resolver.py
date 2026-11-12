@@ -9,8 +9,9 @@ from collections import Counter
 from datetime import date, timedelta
 
 from .tools import normalize
-from .planning import (literal_ids, literal_quarters, literal_years, general_help_request,
-                       general_coverage_request, hypothetical_vehicle_theft_request, own_policy_request,
+from .planning import (PROFILE_LOOKUP, customer_profile_request, has_insurance_context,
+                       literal_ids, literal_quarters, literal_years, general_help_request,
+                       general_coverage_request, hypothetical_vehicle_theft_request, own_policy_request, policy_lookup_request,
                        requests_third_party_data, self_claim_history_request,
                        supported_branches, supported_events)
 
@@ -111,6 +112,8 @@ class Resolver:
         financial = any(word in text for word in ("fondo mutuo", "invertir", "inversion", "asesoria financiera"))
         if medical or legal or financial:
             return self._advice(message, session)
+        if session.get("rol") != "asesor" and customer_profile_request(message):
+            return self._customer_profile(message, session)
         asks_other = requests_third_party_data(message)
         foreign_client = any(identifier.upper() != session.get("usuario_id", "").upper() for identifier in re.findall(r"\bC\d+\b", message, re.I))
         if session.get("rol") == "cliente" and (asks_other or foreign_client):
@@ -156,6 +159,8 @@ class Resolver:
             self.policy_sources = [PRIVACY]
             self._article("general", "5", session)
             return "No puedo modificar pólizas o siniestros, aprobar, rechazar ni cambiar montos. Este canal es de solo lectura."
+        if intent == PROFILE_LOOKUP:
+            return self._customer_profile(message, session)
         if intent == "cobertura" and hypothetical_vehicle_theft_request(message):
             return self._hypothetical_vehicle_theft(session)
         if intent == "consultar_polizas" or (own_policy_request(message) and intent in {"aclaracion", "cobertura", "consulta_tercero"}):
@@ -215,23 +220,50 @@ class Resolver:
                 return "No pude recuperar las reglas de este canal. Solicita una revisión por un canal de atención."
         advisor = session["rol"] == "asesor"
         self.policy_sources = [PRIVACY]
-        policies = "Consultar los seguros autorizados y sus fechas de vigencia" if advisor else "Ver tus seguros y sus fechas de vigencia"
+        policies = "Consultar una póliza y sus fechas de vigencia por código" if advisor else "Ver tus seguros y sus fechas de vigencia"
         claims = "Consultar expedientes autorizados, su estado y motivo de rechazo" if advisor else "Consultar tus siniestros, su estado y motivo de rechazo"
         lines = ["Puedo ayudarte a:", "- " + policies + ".", "- " + claims + ".",
                  "- Explicar coberturas y condiciones del seguro.",
                  "- Registrar un ticket local para revisión; no envía un aviso automático."]
         if advisor:
+            lines.append("- Consultar la ficha básica de un cliente por código.")
             lines.append("- Contar rechazos por ramo, trimestre y año.")
         lines.append("Por ejemplo: «¿Qué seguros tengo?» o «Quiero consultar un siniestro; indicaré su código»." if not advisor
-                     else "Para un expediente indica su código; para contar rechazos, el ramo, trimestre y año.")
+                     else "Prueba con «Consultar póliza POL-1001» o «Consultar ficha del cliente C001». Para un siniestro indica su código. Para contar rechazos, indica el ramo, trimestre y año.")
         lines.append("Solo muestro información permitida para tu sesión. No apruebo pagos ni cambios, ni doy recomendaciones médicas, legales o de inversión.")
         return "\n".join(lines)
+
+    def _customer_profile(self, message, session):
+        """Consulta los datos básicos de un cliente por el código escrito por el asesor."""
+        if session.get("rol") != "asesor":
+            self.policy_sources = [PRIVACY]
+            return "La consulta de fichas de clientes está disponible para sesiones de asesor autorizadas."
+        codes = {identifier.upper() for identifier in re.findall(r"\bC\d+\b", message, re.I)} if customer_profile_request(message) else set()
+        if len(codes) != 1:
+            self.policy_sources = [NO_INVENT]
+            return "Indica un único código de cliente. Puedes escribir «Consultar ficha del cliente C001»."
+        identifier = next(iter(codes))
+        result = self._sql("SELECT cliente_id,nombres,apellidos,fecha_alta FROM clientes WHERE cliente_id=?", session, [identifier])
+        rows = result.get("filas", [])
+        if result.get("error") or result.get("truncado") or len(rows) > 1 or (rows and rows[0].get("cliente_id") != identifier):
+            return self._escalate("No pude verificar una ficha única para el código indicado.", session)
+        if not rows:
+            self.policy_sources = [NO_INVENT]
+            return "No encontré una ficha de cliente con ese código en los registros autorizados."
+        row = rows[0]
+        name = " ".join(value for value in (row.get("nombres"), row.get("apellidos")) if value) or "no registrado"
+        return f"Ficha básica de {identifier}\n- Nombre: {name}.\n- Fecha de alta: {row.get('fecha_alta') or 'no registrada'}. [clientes:{identifier}]"
 
     def _policies(self, plan, message, session):
         """Busca las pólizas que puede ver ese usuario. Las muestra con su producto,
         vigencia y fuentes, aunque el cliente no conozca sus códigos.
         """
         identifier = self._literal_id(plan, "poliza_id", message, "POL")
+        if not identifier and policy_lookup_request(message) and not literal_ids(message, "POL"):
+            self.policy_sources = [PRIVACY]
+            if session["rol"] == "asesor":
+                return "Indica el código de la póliza que quieres consultar. Puedes escribir «Consultar póliza POL-1001»."
+            return "Puedes ver tus propios seguros con «¿Qué seguros tengo?» o indicar el código de una de tus pólizas."
         if session.get("rol") != "cliente" and not identifier:
             self.policy_sources = [NO_INVENT]
             return "Indica un código de póliza; la sesión de asesor no identifica a un titular de seguro."
@@ -469,6 +501,9 @@ class Resolver:
         Explica las condiciones o pide los datos que falten, sin prometer que se
         pagará.
         """
+        if not has_insurance_context(message):
+            self.policy_sources = [NO_INVENT]
+            return "¿Qué seguro, póliza o siniestro quieres consultar?"
         text = normalize(message)
         policy_id = self._literal_id(plan, "poliza_id", message, "POL")
         branches = list(supported_branches(message))

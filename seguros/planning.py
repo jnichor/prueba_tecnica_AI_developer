@@ -10,6 +10,7 @@ from datetime import date
 
 INTENTS = ("ayuda", "estado_siniestro", "motivo_rechazo", "historial_siniestros", "consultar_polizas", "cobertura", "rechazos_trimestre",
            "asesoria", "operacion_no_permitida", "consulta_tercero", "aclaracion", "fuera_de_alcance")
+PROFILE_LOOKUP = "consultar_cliente"
 PLAN_SCHEMA = {
     "type": "object", "properties": {
         "intent": {"type": "string", "enum": list(INTENTS)},
@@ -138,6 +139,44 @@ def own_policy_request(message):
     return bool(own and request)
 
 
+def customer_profile_request(message):
+    """Reconoce un pedido de ficha, con o sin códigos de cliente escritos."""
+    return bool(re.fullmatch(
+        r"\s*¿?\s*(?:(?:quiero\s+|deseo\s+)?(?:consulta|consultar|ver|muestrame|dame)\s+)?"
+        r"(?:(?:el|la|los)\s+)?(?:perfil(?:\s+y\s+(?:los\s+)?datos)?|ficha|datos)\s+(?:del\s+)?cliente"
+        r"(?:\s+c\d+(?:\s*(?:,|\by\b|\bo\b)\s*c\d+)*)?\s*[?!.]*\s*",
+        normalize(message),
+    ))
+
+
+def has_insurance_context(message):
+    """Comprueba si la pregunta da alguna pista para buscar datos de seguros."""
+    return bool(literal_ids(message, "POL") or literal_ids(message, "S")
+                or supported_branches(message) or supported_events(message) != {"desconocido"}
+                or re.search(r"\b(?:segur[oa]s?|polizas?|asegur\w*|siniestros?|cobertur\w*|cubr\w*|deducibl\w*|indemniz\w*|reclamos?|prima\w*)\b", normalize(message)))
+
+
+def clear_external_request(message):
+    """Identifica tareas concretas ajenas a seguros sin adivinar en mensajes vagos."""
+    if has_insurance_context(message):
+        return False
+    return bool(re.match(
+        r"\s*¿?\s*(?:(?:escribe|redacta|traduce|dibuja|programa|calcula)\s+\w+\s+\w+"
+        r"|(?:puedes|podrias)\s+(?:resolver|explicar)\s+(?:mi\s+)?(?:problema|pregunta)\s+(?:de|sobre)\s+\w+)",
+        normalize(message),
+    ))
+
+
+def policy_lookup_request(message):
+    """Reconoce el pedido del menú o una consulta de póliza por código completo."""
+    return bool(re.fullmatch(
+        r"\s*¿?\s*(?:quiero\s+|deseo\s+)?(?:consultar|ver)\s+(?:los?\s+|las?\s+|el\s+)?"
+        r"(?:(?:seguros?|polizas?)\s+autorizad[oa]s?(?:\s+y\s+sus\s+fechas\s+de\s+vigencia)?"
+        r"|(?:poliza|seguro)\s+pol-\d+)\s*[?!.]*\s*",
+        normalize(message),
+    ))
+
+
 def general_coverage_request(message):
     """Comprueba si se pide un resumen de un seguro identificado. No supone que ocurrió
     un choque, robo o cirugía si el mensaje no lo dice.
@@ -205,7 +244,11 @@ def schema_for_message(message):
     properties["evento"]["enum"] = sorted(supported_events(message))
     properties["trimestre"]["enum"] = sorted(literal_quarters(message)) + [None]
     properties["anio"]["enum"] = sorted(literal_years(message)) + [None]
-    if hypothetical_vehicle_theft_request(message):
+    if customer_profile_request(message):
+        properties["intent"]["enum"] = [PROFILE_LOOKUP]
+    elif clear_external_request(message):
+        properties["intent"]["enum"] = ["fuera_de_alcance"]
+    elif hypothetical_vehicle_theft_request(message):
         properties["intent"]["enum"] = ["cobertura"]
         properties["ramo"]["enum"] = ["vehicular"]
         properties["evento"]["enum"] = ["robo"]
@@ -213,6 +256,11 @@ def schema_for_message(message):
         properties["intent"]["enum"] = ["ayuda"]
     elif self_claim_history_request(message):
         properties["intent"]["enum"] = ["historial_siniestros"]
+    elif policy_lookup_request(message):
+        properties["intent"]["enum"] = ["consultar_polizas"]
+        identifiers = literal_ids(message, "POL")
+        if identifiers:
+            properties["poliza_id"]["enum"] = [identifiers[0].upper()]
     elif own_policy_request(message):
         properties["intent"]["enum"] = ["consultar_polizas"]
     elif general_coverage_request(message):
@@ -232,8 +280,13 @@ def validate_plan(plan, message):
     """
     if not isinstance(plan, dict) or set(plan) != set(PLAN_SCHEMA["required"]):
         raise PlanError("La interpretación contiene campos ausentes o no permitidos.")
-    if plan["intent"] not in INTENTS:
+    profile = customer_profile_request(message)
+    if plan["intent"] not in INTENTS and not (profile and plan["intent"] == PROFILE_LOOKUP):
         raise PlanError("La intención no está permitida.")
+    if profile and plan["intent"] != PROFILE_LOOKUP:
+        raise PlanError("El mensaje pide consultar la ficha de un cliente.")
+    if clear_external_request(message) and plan["intent"] != "fuera_de_alcance":
+        raise PlanError("La tarea indicada está fuera de las consultas de seguros.")
     if hypothetical_vehicle_theft_request(message):
         if (plan["intent"], plan["ramo"], plan["evento"]) != ("cobertura", "vehicular", "robo"):
             raise PlanError("La pregunta pide pasos ante un posible robo vehicular.")
@@ -241,6 +294,9 @@ def validate_plan(plan, message):
         raise PlanError("La pregunta pide conocer las funciones del asistente, no consultar registros personales.")
     elif plan["intent"] != "ayuda" and self_claim_history_request(message) and plan["intent"] not in {"historial_siniestros", "estado_siniestro"}:
         raise PlanError("La consulta pide registros propios; no corresponde interpretarla como información de otra persona.")
+    elif policy_lookup_request(message):
+        if plan["intent"] != "consultar_polizas" or (literal_ids(message, "POL") and plan["poliza_id"] is None):
+            raise PlanError("El mensaje pide consultar una póliza y debe conservar el código indicado, si lo hay.")
     elif plan["intent"] != "ayuda" and own_policy_request(message) and plan["intent"] != "consultar_polizas":
         raise PlanError("La consulta pide identificar pólizas propias; no requiere un evento ni información de otra persona.")
     elif plan["intent"] != "ayuda" and general_coverage_request(message) and plan["intent"] != "cobertura":

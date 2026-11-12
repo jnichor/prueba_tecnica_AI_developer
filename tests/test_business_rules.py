@@ -176,6 +176,33 @@ class BusinessRuleTests(unittest.TestCase):
         self.assertNotIn("siniestros:S-5521", result["fuentes"])
         self.assertNotIn("está en evaluación", result["respuesta"])
 
+    def test_customer_profile_queries_only_basic_fields_for_authorized_adviser(self):
+        message = "Consulta el perfil y los datos del cliente C001"
+        adviser = {"rol": "asesor", "usuario_id": "ASE01"}
+        result = self.agent(plan("consultar_cliente")).respond(message, adviser)
+        self.assertEqual(result["estado"], "ok")
+        self.assertIn("Ficha básica de C001", result["respuesta"])
+        self.assertIn("clientes:C001", result["fuentes"])
+        query, = result["herramientas"]
+        self.assertEqual(query["nombre"], "consulta_datos")
+        self.assertEqual(query["argumentos"]["parametros"], ["C001"])
+        row, = query["resultado"]["filas"]
+        self.assertEqual(set(row), {"cliente_id", "nombres", "apellidos", "fecha_alta"})
+        instance = self.agent(plan("consultar_cliente"))
+        result = instance.respond(message, {"rol": "cliente", "usuario_id": "C002"})
+        self.assertIn("sesiones de asesor", result["respuesta"])
+        self.assertEqual(result["herramientas"], [])
+        self.assertEqual(instance.model.calls, [])
+        for message in ("Consultar ficha del cliente", "Consultar ficha del cliente C001 y C002"):
+            result = self.agent(plan("consultar_cliente")).respond(message, adviser)
+            self.assertIn("único código", result["respuesta"])
+            self.assertEqual(result["herramientas"], [])
+
+    def test_vague_request_without_insurance_context_does_not_query_or_escalate(self):
+        result = self.agent(plan("aclaracion")).respond("Quiero consultar", {"rol": "cliente", "usuario_id": "C001"})
+        self.assertIn("¿Qué seguro, póliza o siniestro", result["respuesta"])
+        self.assertEqual(result["herramientas"], [])
+
     def test_fuera_de_alcance_registra_ticket_sin_respuesta_libre(self):
         instance = self.agent(plan("fuera_de_alcance"))
         result = instance.respond("¿Puedes resolver mi problema de astrología?", {
@@ -192,6 +219,24 @@ class BusinessRuleTests(unittest.TestCase):
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0]["estado"], "error")
         self.assertEqual(records[0]["usuario"]["usuario_id"], "C001")
+
+    def test_policy_menu_prompt_and_followup_keep_session_permissions(self):
+        message = "quiero consultar los seguros autorizados"
+        adviser = {"rol": "asesor", "usuario_id": "ASE01"}
+        client = {"rol": "cliente", "usuario_id": "C002"}
+        for session, guidance in ((adviser, "Consultar póliza POL-1001"), (client, "¿Qué seguros tengo?")):
+            with self.subTest(session=session):
+                result = self.agent(plan("consultar_polizas")).respond(message, session)
+                self.assertEqual(result["estado"], "ok")
+                self.assertIn(guidance, result["respuesta"])
+                self.assertEqual(result["herramientas"], [])
+        message = "Consultar póliza POL-1001"
+        for session, can_see in ((adviser, True), (client, False)):
+            with self.subTest(session=session):
+                result = self.agent(plan("consultar_polizas", poliza_id="POL-1001")).respond(message, session)
+                self.assertEqual(result["estado"], "ok")
+                self.assertEqual("Auto Total" in result["respuesta"], can_see)
+                self.assertEqual([h["nombre"] for h in result["herramientas"]], ["consulta_datos"])
 
     def test_como_asesor_que_puedo_hacer_usa_sesion_y_no_crea_ticket(self):
         message = "como asesor que puedo hacer"
@@ -285,7 +330,11 @@ class BusinessRuleTests(unittest.TestCase):
                 replies[name] = result["respuesta"].lower()
                 self.assertEqual(result["estado"], "ok")
                 self.assertTrue(all(tool["nombre"] == "buscar_condicionados" for tool in result["herramientas"]))
-                self.assertNotRegex(result["respuesta"], r"\b(?:POL-\d+|S-\d+)\b")
+                answer = result["respuesta"]
+                if role == "asesor":
+                    self.assertIn("Consultar póliza POL-1001", answer)
+                    answer = answer.replace("Consultar póliza POL-1001", "", 1)
+                self.assertNotRegex(answer, r"\b(?:POL-\d+|S-\d+)\b")
                 self.assertFalse((instance.output_dir / "tickets.jsonl").exists())
         self.assertIn("contar rechazos", replies["asesor"])
         self.assertNotIn("contar rechazos", replies["cliente"])

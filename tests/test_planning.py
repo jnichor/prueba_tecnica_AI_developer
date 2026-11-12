@@ -15,7 +15,8 @@ from seguros.model import ModelError
 from seguros.planning import (PLAN_SCHEMA, STRATEGY, PlanError, Planner,
                                validate_plan, schema_for_message, self_claim_history_request,
                                requests_third_party_data, own_policy_request, general_coverage_request,
-                               general_help_request, hypothetical_vehicle_theft_request)
+                               general_help_request, hypothetical_vehicle_theft_request,
+                               policy_lookup_request)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -52,6 +53,48 @@ class FakeModel:
 
 class PlanValidationTests(unittest.TestCase):
     """Comprueba que los códigos y campos recibidos se puedan usar para consultar datos."""
+    def test_customer_profile_intent_is_limited_to_explicit_requests(self):
+        message = "Consulta el perfil y los datos del cliente C001"
+        profile = plan(intent="consultar_cliente", siniestro_id=None)
+        options = schema_for_message(message)["properties"]
+        self.assertEqual(options["intent"]["enum"], ["consultar_cliente"])
+        self.assertNotIn("cliente_id", options)
+        self.assertEqual(validate_plan(profile, message), profile)
+        with self.assertRaises(PlanError):
+            validate_plan({**profile, "cliente_id": "C002"}, message)
+        with self.assertRaises(PlanError):
+            validate_plan(profile, "¿Cuánto me cubre?")
+
+    def test_concrete_unrelated_tasks_are_not_treated_as_insurance_clarifications(self):
+        for message in ("Puedes resolver mi problema de astrologia?", "Escribe una receta de pan de masa madre.",
+                        "Traduce esta frase al inglés: buenos días."):
+            with self.subTest(message=message):
+                self.assertEqual(schema_for_message(message)["properties"]["intent"]["enum"], ["fuera_de_alcance"])
+                with self.assertRaises(PlanError):
+                    validate_plan(plan(intent="aclaracion", siniestro_id=None), message)
+        for message in ("¿Cuánto me cubre?", "Quiero consultar", "Explica la cobertura de POL-1001"):
+            self.assertNotEqual(schema_for_message(message)["properties"]["intent"]["enum"], ["fuera_de_alcance"])
+
+    def test_policy_menu_and_explicit_code_select_only_policy_lookup(self):
+        for message, code in (("quiero consultar los seguros autorizados", None),
+                              ("Consultar las pólizas autorizadas", None),
+                              ("Consultar póliza POL-1001", "POL-1001")):
+            with self.subTest(message=message):
+                options = schema_for_message(message)["properties"]
+                self.assertEqual(options["intent"]["enum"], ["consultar_polizas"])
+                self.assertEqual(options["poliza_id"]["enum"], [code])
+                valid = plan(intent="consultar_polizas", siniestro_id=None, poliza_id=code)
+                self.assertEqual(validate_plan(valid, message), valid)
+                with self.assertRaises(PlanError):
+                    validate_plan({**valid, "intent": "fuera_de_alcance"}, message)
+                if code:
+                    with self.assertRaises(PlanError):
+                        validate_plan({**valid, "poliza_id": None}, message)
+        for message in ("Consultar cobertura de póliza POL-1001", "Consultar siniestro S-5521",
+                        "Consultar póliza POL-1001 de mi padre", "Qué póliza POL-1001 me recomiendas",
+                        "Modificar póliza POL-1001"):
+            self.assertFalse(policy_lookup_request(message), message)
+
     def test_role_capabilities_are_help_and_concrete_questions_are_not(self):
         for message in ("como asesor que puedo hacer", "¿Qué puedo hacer como asesora?",
                         "¿Como cliente, qué puedo hacer?", "¿Qué puedo hacer como cliente?"):
