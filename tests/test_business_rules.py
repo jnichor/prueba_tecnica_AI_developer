@@ -193,6 +193,25 @@ class BusinessRuleTests(unittest.TestCase):
         self.assertEqual(records[0]["estado"], "error")
         self.assertEqual(records[0]["usuario"]["usuario_id"], "C001")
 
+    def test_robo_hipotetico_orienta_con_clausulas_sin_consultar_expediente(self):
+        for message in ("que debo hacer si tengo un seguro vehicular y me roban el carro",
+                        "cuento con un seguro vehicular que debo hacer si me roban mi vehiculo?"):
+            with self.subTest(message=message):
+                instance = self.agent(plan("cobertura", ramo="vehicular", evento="robo"))
+                result = instance.respond(message, {"rol": "cliente", "usuario_id": "C001"})
+                answer = result["respuesta"]
+                self.assertEqual(result["estado"], "ok")
+                self.assertTrue(answer.startswith("Si te roban el vehículo"))
+                self.assertIn("24 horas", answer)
+                self.assertIn("72 horas", answer)
+                self.assertIn("tarjeta de propiedad", answer)
+                self.assertIn("llaves", answer)
+                self.assertNotIn("30 días", answer)
+                self.assertNotIn("fecha exacta", answer)
+                self.assertEqual([h["nombre"] for h in result["herramientas"]], ["buscar_condicionados"] * 2)
+                self.assertIn("condicionados/vehicular.md, Artículo 4", result["fuentes"])
+                self.assertIn("condicionados/vehicular.md, Artículo 3", result["fuentes"])
+
     def test_ayuda_enumera_opciones_sin_abrir_registros_ni_crear_tickets(self):
         with (ROOT / "datos/clientes.csv").open(encoding="utf-8-sig", newline="") as stream:
             customer = next(row for row in csv.DictReader(stream) if row["cliente_id"] == "C001")

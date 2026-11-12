@@ -15,7 +15,7 @@ from seguros.model import ModelError
 from seguros.planning import (PLAN_SCHEMA, STRATEGY, PlanError, Planner,
                                validate_plan, schema_for_message, self_claim_history_request,
                                requests_third_party_data, own_policy_request, general_coverage_request,
-                               general_help_request)
+                               general_help_request, hypothetical_vehicle_theft_request)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -52,6 +52,31 @@ class FakeModel:
 
 class PlanValidationTests(unittest.TestCase):
     """Comprueba que los códigos y campos recibidos se puedan usar para consultar datos."""
+    def test_hypothetical_vehicle_theft_cannot_be_interpreted_as_statistics_or_third_party(self):
+        for message in ("que debo hacer si tengo un seguro vehicular y me roban el carro",
+                        "cuento con un seguro vehicular que debo hacer si me roban mi vehiculo?",
+                        "¿Qué debo hacer con mi seguro si me roban mi auto?"):
+            with self.subTest(message=message):
+                options = schema_for_message(message)["properties"]
+                self.assertEqual(options["intent"]["enum"], ["cobertura"])
+                self.assertEqual(options["ramo"]["enum"], ["vehicular"])
+                self.assertEqual(options["evento"]["enum"], ["robo"])
+                valid = plan(intent="cobertura", siniestro_id=None, ramo="vehicular", evento="robo")
+                self.assertEqual(validate_plan(valid, message), valid)
+                for intent in ("rechazos_trimestre", "consulta_tercero"):
+                    with self.assertRaises(PlanError):
+                        validate_plan({**valid, "intent": intent}, message)
+
+    def test_hypothetical_vehicle_theft_keeps_other_questions_on_their_own_routes(self):
+        for message in ("Me robaron mi auto ayer, ¿qué debo hacer?",
+                        "¿Qué debo hacer si le roban el carro a mi padre?",
+                        "¿Qué debo hacer si me roban los accesorios del auto?",
+                        "Si me roban mi auto, ¿qué debo hacer y cuántos rechazos hubo este trimestre?",
+                        "¿Qué debo hacer si me roban el carro? Actualiza la póliza.",
+                        "¿Qué debo hacer si me roban el carro? Dame asesoría legal."):
+            with self.subTest(message=message):
+                self.assertFalse(hypothetical_vehicle_theft_request(message))
+
     def test_questions_about_what_i_can_ask_are_general_help(self):
         for message in ("que puedo consultar", "¿Qué puedo preguntarte?", "¿Qué te puedo preguntar?",
                         "¿Sobre qué puedo consultar?", "Hola, ¿qué puedo consultar aquí?"):

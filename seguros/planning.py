@@ -151,6 +151,21 @@ def general_coverage_request(message):
                 and re.search(r"\b(?:cual(?:es)?\s+(?:es|son)\s+(?:su|la|mi|sus|las|mis)\s+coberturas?|que\s+(?:me\s+)?cubre\s+(?:mi|el)\s+seguro|coberturas?\s+(?:de|tiene|incluye))\b", text))
 
 
+def hypothetical_vehicle_theft_request(message):
+    """Reconoce preguntas por pasos ante un posible robo del vehículo propio."""
+    text = normalize(message)
+    if (supported_branches(message) != {"vehicular"}
+            or supported_events(message) != {"desconocido", "robo"}
+            or literal_ids(message, "S") or literal_ids(message, "POL")
+            or requests_third_party_data(message)
+            or re.search(r"\b(?:c\d+|dni|\d{8}|espos[oa]|pareja|herman[oa]|padre|madre|hij[oa]|amig[oa]|tercer[oa]s?|otra persona|otro cliente|accesorio\w*|faro\w*|espejo\w*)\b", text)
+            or re.search(r"\b(?:trimestre\w*|estadistic\w*|cuantos|cuantas|aprueb\w*|aprob\w*|rechaz\w*|actualiz\w*|modific\w*|elimin\w*|borr\w*|demand\w*|abogad\w*|legal|juridic\w*|asesoria|invert\w*|inversion\w*|medicamento\w*|tratamiento\w*|diagnostic\w*|fondo\s+mutuo)\b", text)):
+        return False
+    asks_steps = re.search(r"\b(?:que\s+(?:(?:debo|puedo|tengo\s+que)\s+hacer|hago)|que\s+pasos\s+(?:(?:debo|puedo)\s+seguir|sigo)|como\s+(?:debo\s+)?proced(?:er|o))\b", text)
+    hypothetical_theft = re.search(r"\bsi\b[^.!?;\n]{0,160}\bme\s+(?:roban|robaran|hurtan)\s+(?:mi|el)\s+(?:vehiculo|auto|carro|coche)\b(?!\s+de\b)", text)
+    return bool(asks_steps and hypothetical_theft)
+
+
 def general_help_request(message):
     """Reconoce que se pregunta para qué sirve el asistente, no por un expediente.
     Por ejemplo, qué puedes hacer pide una explicación, no las pólizas del usuario.
@@ -189,7 +204,11 @@ def schema_for_message(message):
     properties["evento"]["enum"] = sorted(supported_events(message))
     properties["trimestre"]["enum"] = sorted(literal_quarters(message)) + [None]
     properties["anio"]["enum"] = sorted(literal_years(message)) + [None]
-    if general_help_request(message):
+    if hypothetical_vehicle_theft_request(message):
+        properties["intent"]["enum"] = ["cobertura"]
+        properties["ramo"]["enum"] = ["vehicular"]
+        properties["evento"]["enum"] = ["robo"]
+    elif general_help_request(message):
         properties["intent"]["enum"] = ["ayuda"]
     elif self_claim_history_request(message):
         properties["intent"]["enum"] = ["historial_siniestros"]
@@ -214,13 +233,16 @@ def validate_plan(plan, message):
         raise PlanError("La interpretación contiene campos ausentes o no permitidos.")
     if plan["intent"] not in INTENTS:
         raise PlanError("La intención no está permitida.")
-    if general_help_request(message) and plan["intent"] != "ayuda":
+    if hypothetical_vehicle_theft_request(message):
+        if (plan["intent"], plan["ramo"], plan["evento"]) != ("cobertura", "vehicular", "robo"):
+            raise PlanError("La pregunta pide pasos ante un posible robo vehicular.")
+    elif general_help_request(message) and plan["intent"] != "ayuda":
         raise PlanError("La pregunta pide conocer las funciones del asistente, no consultar registros personales.")
-    if plan["intent"] != "ayuda" and self_claim_history_request(message) and plan["intent"] not in {"historial_siniestros", "estado_siniestro"}:
+    elif plan["intent"] != "ayuda" and self_claim_history_request(message) and plan["intent"] not in {"historial_siniestros", "estado_siniestro"}:
         raise PlanError("La consulta pide registros propios; no corresponde interpretarla como información de otra persona.")
-    if plan["intent"] != "ayuda" and own_policy_request(message) and plan["intent"] != "consultar_polizas":
+    elif plan["intent"] != "ayuda" and own_policy_request(message) and plan["intent"] != "consultar_polizas":
         raise PlanError("La consulta pide identificar pólizas propias; no requiere un evento ni información de otra persona.")
-    if plan["intent"] != "ayuda" and general_coverage_request(message) and plan["intent"] != "cobertura":
+    elif plan["intent"] != "ayuda" and general_coverage_request(message) and plan["intent"] != "cobertura":
         raise PlanError("El mensaje pide la cobertura general del ramo indicado, sin un evento concreto.")
     if plan["intent"] == "historial_siniestros" and literal_ids(message, "S"):
         raise PlanError("El mensaje identifica un expediente concreto; corresponde consultar ese código.")

@@ -10,7 +10,7 @@ from datetime import date, timedelta
 
 from .tools import normalize
 from .planning import (literal_ids, literal_quarters, literal_years, general_help_request,
-                       general_coverage_request, own_policy_request,
+                       general_coverage_request, hypothetical_vehicle_theft_request, own_policy_request,
                        requests_third_party_data, self_claim_history_request,
                        supported_branches, supported_events)
 
@@ -156,6 +156,8 @@ class Resolver:
             self.policy_sources = [PRIVACY]
             self._article("general", "5", session)
             return "No puedo modificar pólizas o siniestros, aprobar, rechazar ni cambiar montos. Este canal es de solo lectura."
+        if intent == "cobertura" and hypothetical_vehicle_theft_request(message):
+            return self._hypothetical_vehicle_theft(session)
         if intent == "consultar_polizas" or (own_policy_request(message) and intent in {"aclaracion", "cobertura", "consulta_tercero"}):
             return self._policies(plan, message, session)
         own_history = self_claim_history_request(message)
@@ -185,6 +187,21 @@ class Resolver:
         if intent in {"cobertura", "aclaracion"}:
             return self._coverage(plan, message, session)
         return self._escalate("No puedo resolver esa solicitud dentro del alcance de consultas de pólizas y siniestros. No puedo confirmar información sin una consulta válida.", session, "Consulta fuera de alcance o interpretación no válida")
+
+    def _hypothetical_vehicle_theft(self, session):
+        """Explica el procedimiento general sin tratar la hipótesis como un siniestro ocurrido."""
+        theft, theft_source = self._article("vehicular", "4", session)
+        notice, notice_source = self._article("vehicular", "3", session)
+        complaint = self._clause(theft, "4.1")
+        documents = self._clause(theft, "4.3")
+        deadline = self._clause(notice, "3.1")
+        if not (complaint and documents and deadline):
+            return self._escalate("No pude verificar el procedimiento general por robo del vehículo.", session)
+        return ("Si te roban el vehículo, el condicionado de robo total indica estos pasos:\n"
+                f"1. «{complaint}». [{theft_source}]\n"
+                f"2. «{deadline}». [{notice_source}]\n"
+                f"3. «{documents}». [{theft_source}]\n"
+                "La cobertura y cualquier indemnización se evalúan según tu póliza y las circunstancias del robo.")
 
     def _help(self, session):
         """Explica qué se puede consultar sin buscar datos de ningún cliente.
