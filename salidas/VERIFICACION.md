@@ -9,7 +9,7 @@ Revisión de contenido con asistencia de Codex contra los CSV, los artículos y 
 - Tiempo acumulado de inferencia: 32.419 segundos.
 - Suite de regresión registrada: 216 pruebas aprobadas.
 - Revalidación del 4 de noviembre tras retirar el modo sin IA: 249 pruebas y 12 casos reales aprobados con Ollama; nueve llamadas al modelo y tres controles previos. Las respuestas históricas y sus cifras se conservan.
-- Verificación del 12 de noviembre: 260 pruebas aprobadas. En consola se comprobaron los pasos ante robo hipotético, el menú por rol, la consulta de póliza por código y el acceso exclusivo del asesor a una ficha básica. Tres solicitudes fuera de alcance registraron tickets locales pendientes sin leer datos del cliente. Los resultados históricos conservan sus cifras.
+- Verificación del 12 de noviembre: 263 pruebas aprobadas. En consola se comprobaron los pasos ante robo hipotético, el menú por rol, la consulta de póliza por código y el acceso exclusivo del asesor a una ficha básica. Tres solicitudes fuera de alcance registraron tickets locales pendientes sin leer datos del cliente. Los resultados históricos conservan sus cifras. En tres consultas adicionales se verificaron dos resúmenes de la única póliza de C001 y una solicitud de código al encontrar varias pólizas de C008.
 
 ## Matriz de las ocho reglas
 

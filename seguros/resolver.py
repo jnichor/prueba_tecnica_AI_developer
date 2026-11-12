@@ -527,14 +527,15 @@ class Resolver:
             return "No encontré una póliza con esos datos entre los registros a los que tienes acceso."
         if policy_id and (len(rows) != 1 or rows[0].get("poliza_id") != policy_id):
             return self._escalate("La consulta no devolvió una póliza que coincida con el identificador solicitado.", session)
-        if not branch and not policy_id:
-            names = ", ".join(f"{row['poliza_id']} ({row['ramo']}, {row['estado']})" for row in rows)
-            self.policy_sources = [NO_INVENT]
-            return f"Encontré estas pólizas accesibles: {names}. ¿Sobre qué seguro y qué evento necesitas consultar la cobertura?"
         event = self._event(message)
         specific = re.search(r"\b(?:cirugi\w*|operacion\w*|maternidad|hospitaliza\w*|emergencia\w*|incendio\w*|lunas?|accesorio\w*|rotura\w*|fallec\w*|invalidez|sufr\w*|ocurr\w*|inund\w*|granizo|terremoto|lluvia|averia|dano\w*|danad\w*|volc\w*|despist\w*)\b", text)
         general = event == "desconocido" and not specific and (
-            general_coverage_request(message) or bool(re.search(r"\b(?:cobertur\w*|cubr\w*|protege|incluye)\b", text)))
+            general_coverage_request(message)
+            or ((branch or policy_id) and re.search(r"\b(?:cobertur\w*|cubr\w*|protege|incluye)\b", text)))
+        if not branch and not policy_id and not general:
+            names = ", ".join(f"{row['poliza_id']} ({row['ramo']}, {row['estado']})" for row in rows)
+            self.policy_sources = [NO_INVENT]
+            return f"Encontré estas pólizas accesibles: {names}. ¿Sobre qué seguro y qué evento necesitas consultar la cobertura?"
         try:
             interval = self._interval(message)
         except ValueError:
@@ -543,7 +544,8 @@ class Resolver:
         matching = [row for row in rows if interval and row["fecha_inicio"] <= interval[0].isoformat() and interval[1].isoformat() <= row["fecha_fin"]]
         if not policy_id and len(rows) > 1:
             if general:
-                active = [row for row in rows if row["estado"] == "vigente" and row["fecha_inicio"] <= self.today.isoformat() <= row["fecha_fin"]]
+                active = [row for row in rows if branch and row["estado"] == "vigente"
+                          and row["fecha_inicio"] <= self.today.isoformat() <= row["fecha_fin"]]
                 if len(active) == 1:
                     rows = active
                 else:

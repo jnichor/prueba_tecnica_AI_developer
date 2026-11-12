@@ -6,7 +6,7 @@ Las consultas se interpretan únicamente mediante Ollama, con Qwen como modelo p
 
 La validación del 4 de noviembre de 2026 documenta 12 casos correctos con `qwen2.5:7b` y 249 pruebas aprobadas. Tres casos se resolvieron con controles previos sin IA. Además se verificaron consultas naturales de historial, póliza y cobertura en la consola. Los datos son ficticios.
 
-El 12 de noviembre se aprobaron 260 pruebas. Las verificaciones en consola incluyeron la consulta de pólizas por código, la ficha básica del cliente para asesores y la creación de tickets locales ante solicitudes fuera de alcance.
+El 12 de noviembre se aprobaron 263 pruebas. Las verificaciones en consola incluyeron la consulta de pólizas por código, la ficha básica del cliente para asesores y la creación de tickets locales ante solicitudes fuera de alcance. También se comprobó el resumen general de cobertura y la selección de póliza cuando hay varias opciones.
 
 ## Cómo está organizado
 

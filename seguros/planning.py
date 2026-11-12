@@ -178,16 +178,20 @@ def policy_lookup_request(message):
 
 
 def general_coverage_request(message):
-    """Comprueba si se pide un resumen de un seguro identificado. No supone que ocurrió
-    un choque, robo o cirugía si el mensaje no lo dice.
-    """
+    """Reconoce un resumen del seguro propio o de un ramo, sin suponer un evento."""
     text = normalize(message)
-    return bool(len(supported_branches(message)) == 1
-                and supported_events(message) == {"desconocido"}
-                and not requests_third_party_data(message)
-                and not re.search(r"\b(?:recomiend\w*|recomendacion\w*|aconsej\w*|conviene)\b", text)
-                and not re.search(r"\b(?:c\d+|dni|documento|esposo|esposa|pareja|hermano|hermana|padre|madre|hijo|hija|terceros?|otra persona|otro cliente)\b", text)
-                and re.search(r"\b(?:cual(?:es)?\s+(?:es|son)\s+(?:su|la|mi|sus|las|mis)\s+coberturas?|que\s+(?:me\s+)?cubre\s+(?:mi|el)\s+seguro|coberturas?\s+(?:de|tiene|incluye))\b", text))
+    branches = supported_branches(message)
+    if (len(branches) > 1 or supported_events(message) != {"desconocido"}
+            or requests_third_party_data(message)
+            or re.search(r"\b(?:recomiend\w*|recomendacion\w*|aconsej\w*|conviene|aprueb\w*|actualiz\w*|modific\w*|elimin\w*|borr\w*)\b", text)
+            or re.search(r"\b(?:c\d+|dni|documento|esposo|esposa|pareja|hermano|hermana|padre|madre|hijo|hija|terceros?|otra persona|otro cliente)\b", text)):
+        return False
+    if branches and re.search(r"\b(?:cual(?:es)?\s+(?:es|son)\s+(?:su|la|mi|sus|las|mis)\s+coberturas?|que\s+(?:me\s+)?cubre\s+(?:mi|el)\s+seguro|coberturas?\s+(?:de|tiene|incluye))\b", text):
+        return True
+    return bool(not literal_ids(message, "S") and (
+        re.search(r"\b(?:coberturas?\s+de\s+mi|que\s+(?:me\s+)?cubre\s+mi)\s+(?:seguro|poliza)\b", text)
+        or re.fullmatch(r"\s*¿?\s*sobre\s+mi\s+(?:seguro|poliza)\s+(?:vehicular|de\s+(?:salud|vida))\s*[?!.]*\s*", text)
+    ))
 
 
 def hypothetical_vehicle_theft_request(message):

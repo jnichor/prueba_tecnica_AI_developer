@@ -53,6 +53,21 @@ class FakeModel:
 
 class PlanValidationTests(unittest.TestCase):
     """Comprueba que los códigos y campos recibidos se puedan usar para consultar datos."""
+    def test_own_coverage_summary_accepts_missing_branch_or_short_independent_question(self):
+        for message, branch in (("Explícame sobre la cobertura de mi seguro", None),
+                                ("sobre mi seguro vehicular", "vehicular")):
+            with self.subTest(message=message):
+                options = schema_for_message(message)["properties"]
+                self.assertEqual(options["intent"]["enum"], ["cobertura"])
+                self.assertEqual(options["evento"]["enum"], ["desconocido"])
+                valid = plan(intent="cobertura", siniestro_id=None, ramo=branch)
+                self.assertEqual(validate_plan(valid, message), valid)
+                with self.assertRaises(PlanError):
+                    validate_plan({**valid, "intent": "aclaracion"}, message)
+        for message in ("¿Cuánto me cubre?", "¿Qué cubre mi seguro si chocó mi auto?",
+                        "Explica la cobertura de mi seguro y del de otro cliente"):
+            self.assertFalse(general_coverage_request(message), message)
+
     def test_customer_profile_intent_is_limited_to_explicit_requests(self):
         message = "Consulta el perfil y los datos del cliente C001"
         profile = plan(intent="consultar_cliente", siniestro_id=None)

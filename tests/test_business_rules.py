@@ -575,6 +575,30 @@ class BusinessRuleTests(unittest.TestCase):
         self.assertIn("vencida", result["respuesta"].lower())
         self.assertIn("vigente", result["respuesta"].lower())
 
+    def test_coverage_summary_of_own_policy_without_event_or_date(self):
+        for message, branch in (("Explicame sobre la cobertura de mi seguro", None),
+                                ("sobre mi seguro vehicular", "vehicular")):
+            with self.subTest(message=message):
+                result = self.agent(plan("cobertura", ramo=branch)).respond(message, {
+                    "rol": "cliente", "usuario_id": "C001"})
+                self.assertEqual(result["estado"], "ok")
+                self.assertIn("Resumen general de Auto Total", result["respuesta"])
+                self.assertIn("condicionados/vehicular.md, Artículo 1", result["fuentes"])
+                self.assertNotIn("Indica la fecha", result["respuesta"])
+
+    def test_general_coverage_with_multiple_policies_asks_only_for_policy(self):
+        result = self.agent(plan("cobertura")).respond("Explicame sobre la cobertura de mi seguro", {
+            "rol": "cliente", "usuario_id": "C008"})
+        self.assertEqual(result["estado"], "ok")
+        self.assertIn("Indica el código de póliza", result["respuesta"])
+        self.assertNotIn("evento", result["respuesta"])
+        self.assertNotIn("Resumen general", result["respuesta"])
+        query, = result["herramientas"]
+        self.assertEqual(query["nombre"], "consulta_datos")
+        rows = query["resultado"]["filas"]
+        self.assertGreater(len(rows), 1)
+        self.assertTrue(all(row["cliente_id"] == "C008" and row["poliza_id"] in result["respuesta"] for row in rows))
+
     def test_screenshot_cobertura_general_vehicular_responde_producto(self):
         instance = self.agent(plan("cobertura", ramo="vehicular"))
         result = instance.respond("deseo consultar sobre mi seguro vehicular, cual es su cobertura", {
