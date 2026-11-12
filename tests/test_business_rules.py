@@ -193,6 +193,19 @@ class BusinessRuleTests(unittest.TestCase):
         self.assertEqual(records[0]["estado"], "error")
         self.assertEqual(records[0]["usuario"]["usuario_id"], "C001")
 
+    def test_como_asesor_que_puedo_hacer_usa_sesion_y_no_crea_ticket(self):
+        message = "como asesor que puedo hacer"
+        for session, show_counts in (({"rol": "asesor", "usuario_id": "ASE01"}, True),
+                                     ({"rol": "cliente", "usuario_id": "C001"}, False)):
+            with self.subTest(session=session):
+                instance = self.agent(plan("ayuda"))
+                result = instance.respond(message, session)
+                self.assertEqual(result["estado"], "ok")
+                self.assertIn("Puedo ayudarte", result["respuesta"])
+                self.assertEqual("Contar rechazos" in result["respuesta"], show_counts)
+                self.assertTrue(result["herramientas"])
+                self.assertTrue(all(h["nombre"] == "buscar_condicionados" for h in result["herramientas"]))
+
     def test_robo_hipotetico_orienta_con_clausulas_sin_consultar_expediente(self):
         for message in ("que debo hacer si tengo un seguro vehicular y me roban el carro",
                         "cuento con un seguro vehicular que debo hacer si me roban mi vehiculo?"):

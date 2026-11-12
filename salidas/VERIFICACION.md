@@ -9,7 +9,7 @@ Revisión de contenido con asistencia de Codex contra los CSV, los artículos y 
 - Tiempo acumulado de inferencia: 32.419 segundos.
 - Suite de regresión registrada: 216 pruebas aprobadas.
 - Revalidación del 4 de noviembre tras retirar el modo sin IA: 249 pruebas y 12 casos reales aprobados con Ollama; nueve llamadas al modelo y tres controles previos. Las respuestas históricas y sus cifras se conservan.
-- Verificación del 12 de noviembre: 252 pruebas aprobadas y dos consultas reales en consola sobre robo hipotético. Ambas devolvieron los pasos de los artículos 3 y 4 del condicionado vehicular. Los 12 casos conservan sus esquemas.
+- Verificación del 12 de noviembre: 254 pruebas aprobadas y tres consultas reales en consola. Las dos preguntas sobre robo hipotético devolvieron los pasos de los artículos 3 y 4 del condicionado vehicular. La consulta de funciones mostró el menú correspondiente al asesor sin consultar registros ni crear un ticket. Se conservaron los esquemas de los 12 casos al comprobar la corrección de robo.
 
 ## Matriz de las ocho reglas
 

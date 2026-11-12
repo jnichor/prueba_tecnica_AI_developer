@@ -184,6 +184,7 @@ def general_help_request(message):
         r"\b(?:de|sobre)\s+que\s+(?:me\s+)?puedes\s+(?:dar(?:me)?|brindar(?:me)?|proporcionar(?:me)?)\s+informacion\b",
         r"\bque\s+informacion\s+(?:me\s+)?puedes\s+(?:dar(?:me)?|brindar(?:me)?|proporcionar(?:me)?|ofrecer(?:me)?)\b",
         r"\bque\s+puedes\s+(?:hacer|explicar|informar)\b",
+        r"^\s*¿?\s*(?:como\s+(?:asesor(?:a)?|cliente)\s*,?\s+)?que\s+puedo\s+hacer(?:\s+como\s+(?:asesor(?:a)?|cliente))?\s*[?!.]*\s*$",
         r"\b(?:como|en\s+que)\s+(?:me\s+)?puedes\s+(?:ayudar(?:me)?|orientar(?:me)?)\b",
         r"\bque\s+(?:temas|consultas|cosas)\s+puedo\s+(?:consultar|preguntar|hacer)\b",
         r"\b(?:sobre\s+)?que\s+(?:te\s+)?puedo\s+(?:consultar(?:te)?|preguntar(?:te)?)(?:\s+(?:aqui|contigo|en\s+este\s+(?:chat|asistente)))?\s*[?!.]*\s*$",

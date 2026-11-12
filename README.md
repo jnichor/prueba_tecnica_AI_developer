@@ -6,7 +6,7 @@ Las consultas se interpretan únicamente mediante Ollama, con Qwen como modelo p
 
 La validación del 4 de noviembre de 2026 documenta 12 casos correctos con `qwen2.5:7b` y 249 pruebas aprobadas. Tres casos se resolvieron con controles previos sin IA. Además se verificaron consultas naturales de historial, póliza y cobertura en la consola. Los datos son ficticios.
 
-El 12 de noviembre se aprobaron 252 pruebas y se verificaron en consola dos consultas sobre qué hacer ante un robo hipotético del vehículo.
+El 12 de noviembre se aprobaron 254 pruebas y se verificaron en consola dos consultas sobre robo hipotético del vehículo y una sobre las funciones del asesor.
 
 ## Cómo está organizado
 

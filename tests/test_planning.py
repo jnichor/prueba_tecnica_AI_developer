@@ -52,6 +52,16 @@ class FakeModel:
 
 class PlanValidationTests(unittest.TestCase):
     """Comprueba que los códigos y campos recibidos se puedan usar para consultar datos."""
+    def test_role_capabilities_are_help_and_concrete_questions_are_not(self):
+        for message in ("como asesor que puedo hacer", "¿Qué puedo hacer como asesora?",
+                        "¿Como cliente, qué puedo hacer?", "¿Qué puedo hacer como cliente?"):
+            with self.subTest(message=message):
+                self.assertEqual(schema_for_message(message)["properties"]["intent"]["enum"], ["ayuda"])
+                with self.assertRaises(PlanError):
+                    validate_plan(plan(intent="asesoria", siniestro_id=None), message)
+        self.assertFalse(general_help_request("como asesor que puedo hacer si me roban mi auto"))
+        self.assertFalse(general_help_request("como asesor que puedo hacer para demandar"))
+
     def test_hypothetical_vehicle_theft_cannot_be_interpreted_as_statistics_or_third_party(self):
         for message in ("que debo hacer si tengo un seguro vehicular y me roban el carro",
                         "cuento con un seguro vehicular que debo hacer si me roban mi vehiculo?",
