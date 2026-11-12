@@ -43,7 +43,7 @@ La IA entiende qué se pregunta; el programa comprueba los datos y redacta la re
 
 **Modelo:** Ollama 0.40.13 con qwen2.5:7b es la única ruta para interpretar consultas. Se descartó la generación libre tras observar una causa de rechazo y un plazo inventados. La IA interpreta campos limitados y el código verifica los hechos. Un único reintento corrige formato; si falla, se registra y se pide revisión sin inventar una respuesta.
 
-**Framework:** biblioteca estándar para reducir dependencias y explicar el circuito. Un framework ofrecería abstracciones, pero añadiría configuración innecesaria para este alcance.
+**Herramientas de Python.** Usé las herramientas que ya trae Python para leer los archivos, consultar los datos y guardar los tickets. Así hay menos componentes que instalar y es más fácil seguir cada paso de una consulta. Ollama ejecuta el modelo. Un framework podría ayudar si el agente tuviera que coordinar muchos pasos o herramientas. Para las consultas de este proyecto, el flujo actual es suficiente.
 
 **Datos:** SQLite en memoria evita instalar paquetes y permite cargar únicamente registros autorizados. DuckDB, sugerido para los CSV, también sería válido; se priorizó una instalación sencilla. La interfaz de datos encapsula la implementación.
 
